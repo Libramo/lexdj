@@ -23,7 +23,7 @@ export const laws = pgTable(
     visas_text: text("visas_text"),
     full_text: text("full_text"),
     signed_by: text("signed_by"),
-    pdf_links: text("pdf_links"),
+    pdf_links: text("pdf_links").array(),
     issue_number: text("issue_number"),
     issue_date: date("issue_date"),
     source_url: text("source_url"),

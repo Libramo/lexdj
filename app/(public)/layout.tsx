@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 const navLinks = [
@@ -6,6 +5,7 @@ const navLinks = [
   { href: "/recherche", label: "Recherche" },
   { href: "/ministeres", label: "Ministères" },
   { href: "/journal", label: "Numéros" },
+  { href: "/couverture", label: "Couverture" },
 ];
 
 export default function PublicLayout({
@@ -17,16 +17,16 @@ export default function PublicLayout({
     <div className="min-h-screen flex flex-col bg-[#FAFAF8]">
       {/* Top bar */}
       <div className="bg-[#1A3A5C] text-white text-[11px] tracking-widest text-center py-1.5 font-medium">
-        RÉPUBLIQUE DE DJIBOUTI — JOURNAL OFFICIEL
+        LEXDJ · Archive numérique non officielle du Journal Officiel de Djibouti
       </div>
 
       {/* Nav */}
       <header className="bg-white border-b border-black/[0.07] sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-8 flex items-center justify-between h-15">
+        <div className="max-w-6xl mx-auto px-8 flex items-center justify-between h-[60px]">
           <Link href="/" className="flex items-center gap-3 no-underline">
-            {/* <div className="w-8 h-8 rounded-md flex items-center "> */}
-            <Image src={"/ejo-LOGO-new.png"} alt="logo" width={8} height={8} />
-            {/* </div> */}
+            <div className="w-8 h-8 bg-[#1A3A5C] rounded-md flex items-center justify-center text-[11px] font-bold text-white tracking-wider">
+              JO
+            </div>
             <div>
               <div className="text-sm font-medium text-[#111] leading-tight">
                 Journal Officiel
@@ -62,8 +62,8 @@ export default function PublicLayout({
       <footer className="bg-white border-t border-black/[0.07] py-6">
         <div className="max-w-6xl mx-auto px-8 flex justify-between items-center text-xs text-[#AAA]">
           <span>
-            © {new Date().getFullYear()} Journal Officiel de la République de
-            Djibouti
+            © {new Date().getFullYear()} LexDJ · Archive non officielle · Non
+            affilié au gouvernement de Djibouti
           </span>
           <span>37 000+ textes indexés</span>
         </div>
