@@ -5,6 +5,7 @@ import {
   date,
   timestamp,
   index,
+  pgView,
 } from "drizzle-orm/pg-core";
 
 export const laws = pgTable(
@@ -35,6 +36,19 @@ export const laws = pgTable(
     index("laws_issue_number_idx").on(table.issue_number),
   ],
 );
+
+// Define laws_distinct as a Drizzle view mirroring the laws table
+export const lawsDistinct = pgView("laws_distinct", {
+  id: serial("id"),
+  title: text("title"),
+  doc_type: text("doc_type"),
+  reference_number: text("reference_number"),
+  ministry: text("ministry"),
+  publication_date: text("publication_date"),
+  mesure: text("mesure"),
+  issue_number: text("issue_number"),
+  intro_text: text("intro_text"),
+}).existing();
 
 export const scrape_logs = pgTable("scrape_logs", {
   id: serial("id").primaryKey(),

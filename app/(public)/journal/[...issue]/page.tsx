@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Calendar, FileText } from "lucide-react";
 import { db } from "@/drizzle/src";
-import { laws } from "@/drizzle/src/db/schema";
+import { laws, scrape_logs } from "@/drizzle/src/db/schema";
+import { toTitleCase } from "@/lib/utils";
+import { InaccessiblesSection } from "@/components/public/inaccessibles-section";
 
 interface Props {
   params: Promise<{ issue: string[] }>;
@@ -22,34 +24,53 @@ function formatDate(d: string | null) {
   }
 }
 
+function toPortalIssueUrl(issueNumber: string): string | null {
+  const match = issueNumber.match(
+    /n°\s*0*(\d+)\s*du\s+(\d{2})\/(\d{2})\/(\d{4})/i,
+  );
+  if (!match) return null;
+  const [, num, dd, mm, yyyy] = match;
+  return `https://www.journalofficiel.dj/journal-officiel/n${num}-du-${dd}-${mm}-${yyyy}/`;
+}
+
 export default async function IssuePage({ params }: Props) {
   const { issue: issueParts } = await params;
-  // Reconstruct full issue string from catch-all segments
-  // e.g. ["n%C2%B0%2006%20du%2031", "03", "2026"] → "n° 06 du 31/03/2026"
   const issue = issueParts.map(decodeURIComponent).join("/");
 
-  const rows = await db
-    .select({
-      id: laws.id,
-      title: laws.title,
-      doc_type: laws.doc_type,
-      reference_number: laws.reference_number,
-      ministry: laws.ministry,
-      publication_date: laws.publication_date,
-      mesure: laws.mesure,
-      issue_date: laws.issue_date,
-      signed_by: laws.signed_by,
-    })
-    .from(laws)
-    .where(eq(laws.issue_number, issue))
-    .orderBy(laws.id);
+  const [rows, missingRows] = await Promise.all([
+    db
+      .select({
+        id: laws.id,
+        title: laws.title,
+        doc_type: laws.doc_type,
+        reference_number: laws.reference_number,
+        ministry: laws.ministry,
+        publication_date: laws.publication_date,
+        mesure: laws.mesure,
+        issue_date: laws.issue_date,
+        signed_by: laws.signed_by,
+      })
+      .from(laws)
+      .where(eq(laws.issue_number, issue))
+      .orderBy(laws.id),
 
-  if (rows.length === 0) notFound();
+    // 404 laws for this issue from scrape_logs
+    db
+      .select({
+        url: scrape_logs.url,
+        title: scrape_logs.title,
+        ministry: scrape_logs.ministry,
+      })
+      .from(scrape_logs)
+      .where(sql`issue_number = ${issue} AND status = '404' AND level = 'law'`)
+      .orderBy(scrape_logs.id),
+  ]);
 
-  const issueDate = rows[0].issue_date;
+  if (rows.length === 0 && missingRows.length === 0) notFound();
 
-  // Get adjacent issues for navigation
-  const [prevIssue, nextIssue] = await Promise.all([
+  const issueDate = rows[0]?.issue_date ?? null;
+
+  const [prevIssue, nextIssue, issueUrl] = await Promise.all([
     db
       .select({ issue_number: laws.issue_number })
       .from(laws)
@@ -68,9 +89,18 @@ export default async function IssuePage({ params }: Props) {
       .orderBy(laws.issue_date)
       .limit(1)
       .then((r) => r[0]?.issue_number ?? null),
+
+    db
+      .select({ url: scrape_logs.url })
+      .from(scrape_logs)
+      .where(sql`issue_number = ${issue} AND level = 'issue'`)
+      .limit(1)
+      .then((r) => r[0]?.url ?? null),
   ]);
 
-  // Group by doc_type
+  console.log(issueUrl);
+
+  // Group available laws by doc_type
   const grouped = rows.reduce<Record<string, typeof rows>>((acc, law) => {
     const key = law.doc_type ?? "Autres";
     if (!acc[key]) acc[key] = [];
@@ -87,6 +117,7 @@ export default async function IssuePage({ params }: Props) {
     "Avis",
     "Autres",
   ];
+
   const sortedGroups = Object.entries(grouped).sort(([a], [b]) => {
     const ai = docTypeOrder.indexOf(a);
     const bi = docTypeOrder.indexOf(b);
@@ -104,8 +135,7 @@ export default async function IssuePage({ params }: Props) {
           href="/journal"
           className="flex items-center gap-1.5 hover:text-[#111] transition-colors no-underline"
         >
-          <ArrowLeft size={14} />
-          Numéros
+          <ArrowLeft size={14} /> Numéros
         </Link>
         <span>/</span>
         <span className="text-[#111] font-medium">N° {issue}</span>
@@ -130,21 +160,67 @@ export default async function IssuePage({ params }: Props) {
               <div className="flex items-center gap-2 mt-2 text-sm text-[#888]">
                 <Calendar size={13} />
                 {formatDate(issueDate)}
+                {toPortalIssueUrl(issue) && (
+                  <a
+                    href={toPortalIssueUrl(issue)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-[#4A7FA8] hover:underline no-underline mt-1"
+                  >
+                    Voir sur le portail officiel ↗
+                  </a>
+                )}
               </div>
             )}
           </div>
 
-          <div className="text-right shrink-0">
-            <div className="text-3xl font-semibold text-[#111] tabular-nums">
-              {rows.length}
+          {/* Stats */}
+          <div className="flex gap-6 shrink-0">
+            <div className="text-right">
+              <div className="text-3xl font-semibold text-[#111] tabular-nums">
+                {rows.length}
+              </div>
+              <div className="text-xs text-[#AAA]">
+                disponible{rows.length > 1 ? "s" : ""}
+              </div>
             </div>
-            <div className="text-xs text-[#AAA]">
-              texte{rows.length > 1 ? "s" : ""}
-            </div>
+            {missingRows.length > 0 && (
+              <div className="text-right">
+                <div className="text-3xl font-semibold text-amber-500 tabular-nums">
+                  {missingRows.length}
+                </div>
+                <div className="text-xs text-[#AAA]">
+                  inaccessible{missingRows.length > 1 ? "s" : ""}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Prev / Next navigation */}
+        {/* Coverage bar */}
+        {missingRows.length > 0 && (
+          <div className="mt-5">
+            <div className="flex justify-between text-xs text-[#AAA] mb-1.5">
+              <span>Complétude de ce numéro</span>
+              <span>
+                {Math.round(
+                  (rows.length / (rows.length + missingRows.length)) * 100,
+                )}
+                %
+              </span>
+            </div>
+            <div className="h-1.5 bg-black/[0.05] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#1A3A5C] rounded-full"
+                style={{
+                  width: `${Math.round((rows.length / (rows.length + missingRows.length)) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Prev / Next */}
         <div className="flex justify-between gap-3 mt-6">
           {prevIssue && (
             <Link
@@ -159,17 +235,16 @@ export default async function IssuePage({ params }: Props) {
               href={`/journal/${nextIssue.split("/").map(encodeURIComponent).join("/")}`}
               className="flex items-center gap-2 px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C] transition-colors no-underline text-[#666]"
             >
-              {nextIssue.toUpperCase()} <ArrowRight size={13} />
+              N° {nextIssue} <ArrowRight size={13} />
             </Link>
           )}
         </div>
       </div>
 
-      {/* Grouped laws */}
+      {/* Available laws grouped */}
       <div className="space-y-8">
         {sortedGroups.map(([docType, items]) => (
           <div key={docType}>
-            {/* Group header */}
             <div className="flex items-center gap-3 mb-3">
               <span className="text-xs font-semibold text-[#1A3A5C] uppercase tracking-widest">
                 {docType}
@@ -177,8 +252,6 @@ export default async function IssuePage({ params }: Props) {
               <span className="text-xs text-[#CCC]">{items.length}</span>
               <div className="flex-1 h-px bg-black/[0.06]" />
             </div>
-
-            {/* Items */}
             <div className="flex flex-col divide-y divide-black/[0.05] border border-black/[0.07] rounded-xl overflow-hidden bg-white">
               {items.map((law) => (
                 <Link
@@ -198,7 +271,7 @@ export default async function IssuePage({ params }: Props) {
                       )}
                       {law.ministry && (
                         <span className="text-xs text-[#888] truncate max-w-[280px]">
-                          {law.ministry}
+                          {toTitleCase(law.ministry)}
                         </span>
                       )}
                       {law.signed_by && (
@@ -217,6 +290,9 @@ export default async function IssuePage({ params }: Props) {
             </div>
           </div>
         ))}
+
+        {/* Missing / inaccessible laws */}
+        {missingRows.length > 0 && <InaccessiblesSection laws={missingRows} />}
       </div>
     </div>
   );

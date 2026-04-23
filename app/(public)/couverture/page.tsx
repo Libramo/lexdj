@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle, Info, BookOpen } from "lucide-react";
 import { PartialIssuesTable } from "@/components/public/partial-issues-table";
 import { DuplicatesTable } from "@/components/public/duplicates-table";
+
 import { db } from "@/drizzle/src";
 import { laws, scrape_logs } from "@/drizzle/src/db/schema";
 import {
@@ -19,11 +20,11 @@ async function getCoverageData() {
     duplicates,
     missingByDecade,
     timeline,
+    duplicateCount,
   ] = await Promise.all([
     db
-      .select({ total: count() })
-      .from(laws)
-      .then((r) => Number(r[0].total)),
+      .execute(sql`SELECT COUNT(*)::int as total FROM laws_distinct`)
+      .then((r) => Number((r.rows[0] as any).total)),
 
     db
       .select({ total: sql<number>`count(*)` })
@@ -51,7 +52,8 @@ async function getCoverageData() {
         SELECT title, publication_date::text, issue_number,
           COUNT(*)::int AS occurrences, MIN(id)::int AS canonical_id
         FROM laws
-        GROUP BY title, publication_date, issue_number
+        GROUP BY title, publication_date, issue_number,
+          md5(COALESCE(full_text,'') || COALESCE(intro_text,''))
         HAVING COUNT(*) > 1
         ORDER BY COUNT(*) DESC LIMIT 100
       `),
@@ -59,8 +61,14 @@ async function getCoverageData() {
     db.execute(sql`
         SELECT FLOOR(EXTRACT(YEAR FROM issue_date::date)/10)*10 AS decade,
           COUNT(*)::int AS missing_count
-        FROM scrape_logs s JOIN laws l ON l.issue_number = s.issue_number
-        WHERE s.status='404' AND s.level='law' AND l.issue_date IS NOT NULL
+        FROM scrape_logs s
+        JOIN (
+          SELECT DISTINCT issue_number, MIN(issue_date) as issue_date
+          FROM laws
+          WHERE issue_number IS NOT NULL AND issue_date IS NOT NULL
+          GROUP BY issue_number
+        ) l ON l.issue_number = s.issue_number
+        WHERE s.status = '404' AND s.level = 'law' AND l.issue_date IS NOT NULL
         GROUP BY decade ORDER BY decade
       `),
 
@@ -73,11 +81,20 @@ async function getCoverageData() {
           AND EXTRACT(YEAR FROM publication_date::date) BETWEEN 1900 AND 2030
         GROUP BY year ORDER BY year
       `),
+
+    db
+      .execute(
+        sql`
+    SELECT (SELECT COUNT(*) FROM laws) - (SELECT COUNT(*) FROM laws_distinct) AS duplicates
+  `,
+      )
+      .then((r) => Number((r.rows[0] as any).duplicates)),
   ]);
 
   return {
     totalLaws,
     totalMissing,
+    duplicateCount,
     partialIssues: partialIssues.rows as {
       issue_number: string;
       issue_date: string;
@@ -108,6 +125,7 @@ export default async function CoveragePage() {
     duplicates,
     missingByDecade,
     timeline,
+    duplicateCount,
   } = await getCoverageData();
 
   const totalAttempted = totalLaws + totalMissing;
@@ -120,7 +138,7 @@ export default async function CoveragePage() {
       <div className="bg-[#1A3A5C] text-white">
         <div className="max-w-5xl mx-auto px-8 py-14">
           <p className="text-white/50 text-xs uppercase tracking-widest font-medium mb-3">
-            Journal Officiel · Djibouti
+            LexDJ · Archive non officielle
           </p>
           <h1 className="font-['Libre_Baskerville'] text-4xl md:text-5xl font-normal leading-tight mb-4">
             Couverture
@@ -172,9 +190,9 @@ export default async function CoveragePage() {
             barPct={overallPct}
           />
           <AnimatedKPI
-            value={multiPubCount}
-            label="Multi-publiés"
-            sublabel="textes dans plusieurs numéros"
+            value={duplicateCount}
+            label="En double"
+            sublabel="entrées dupliquées sur le portail"
             icon={<BookOpen size={14} className="text-violet-500" />}
             color="bg-violet-400"
           />
@@ -215,13 +233,26 @@ export default async function CoveragePage() {
 
         {/* ── MULTI-PUBLISHED ── */}
         <div>
-          <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111] mb-2">
-            Textes multi-publiés
-          </h2>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111]">
+              Textes en double
+            </h2>
+            {/* <a
+              href="/api/duplicates"
+              download
+              className="flex items-center gap-2 text-xs font-medium text-[#1A3A5C] bg-[#EEF3F8] border border-[#1A3A5C]/15 rounded-lg px-3 py-2 hover:bg-[#1A3A5C] hover:text-white transition-colors no-underline shrink-0"
+            >
+              ↓ Télécharger CSV
+            </a> */}
+
+            <span className="text-xs text-[#AAA]">
+              Rapport (fichier csv) disponible sur demande
+            </span>
+          </div>
           <p className="text-sm text-[#888] mb-5 leading-relaxed">
-            Ces textes apparaissent dans plusieurs numéros distincts du Journal
-            Officiel — republication, annexe ou référence croisée. Chaque entrée
-            correspond à une URL source différente. Il ne s'agit pas d'erreurs.
+            Ces textes ont plusieurs URLs sur le portail officiel pointant vers
+            le même contenu — probablement un artefact de pagination du CMS. Ce
+            fichier peut être transmis aux gestionnaires du portail officiel.
           </p>
           <DuplicatesTable duplicates={duplicates} />
         </div>

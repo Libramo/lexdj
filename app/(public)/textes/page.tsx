@@ -3,7 +3,7 @@ import Link from "next/link";
 import { toTitleCase } from "@/lib/utils";
 import { ArrowRight, FileText, BookOpen, Hash } from "lucide-react";
 import { db } from "@/drizzle/src";
-import { laws } from "@/drizzle/src/db/schema";
+import { laws, lawsDistinct } from "@/drizzle/src/db/schema";
 import { TextesFilters } from "@/components/public/text-filters";
 
 const PAGE_SIZE = 25;
@@ -92,9 +92,9 @@ export default async function TextesPage({ searchParams }: Props) {
   const eraFilter = params.era ?? "";
 
   const conditions = [
-    q ? ilike(laws.title, `%${q}%`) : undefined,
-    typeFilter ? eq(laws.doc_type, typeFilter) : undefined,
-    ministryFilter ? eq(laws.ministry, ministryFilter) : undefined,
+    q ? ilike(lawsDistinct.title, `%${q}%`) : undefined,
+    typeFilter ? eq(lawsDistinct.doc_type, typeFilter) : undefined,
+    ministryFilter ? eq(lawsDistinct.ministry, ministryFilter) : undefined,
     eraFilter ? ERA_CONDITIONS[eraFilter] : undefined,
   ].filter(Boolean) as Parameters<typeof and>;
 
@@ -105,32 +105,32 @@ export default async function TextesPage({ searchParams }: Props) {
     await Promise.all([
       db
         .select({ total: count() })
-        .from(laws)
+        .from(lawsDistinct)
         .where(where)
         .then((r) => r[0]),
       db
         .select({
-          id: laws.id,
-          title: laws.title,
-          doc_type: laws.doc_type,
-          reference_number: laws.reference_number,
-          ministry: laws.ministry,
-          publication_date: laws.publication_date,
-          mesure: laws.mesure,
-          issue_number: laws.issue_number,
-          intro_text: laws.intro_text,
+          id: lawsDistinct.id,
+          title: lawsDistinct.title,
+          doc_type: lawsDistinct.doc_type,
+          reference_number: lawsDistinct.reference_number,
+          ministry: lawsDistinct.ministry,
+          publication_date: lawsDistinct.publication_date,
+          mesure: lawsDistinct.mesure,
+          issue_number: lawsDistinct.issue_number,
+          intro_text: lawsDistinct.intro_text,
         })
-        .from(laws)
+        .from(lawsDistinct)
         .where(where)
-        .orderBy(desc(laws.publication_date))
+        .orderBy(desc(lawsDistinct.publication_date))
         .limit(PAGE_SIZE)
         .offset((page - 1) * PAGE_SIZE),
       getFilterOptions(),
       // Count by doc type for the header chips
       db
-        .select({ doc_type: laws.doc_type, count: count() })
-        .from(laws)
-        .groupBy(laws.doc_type)
+        .select({ doc_type: lawsDistinct.doc_type, count: count() })
+        .from(lawsDistinct)
+        .groupBy(lawsDistinct.doc_type)
         .orderBy(desc(count()))
         .limit(7),
     ]);
@@ -206,7 +206,7 @@ export default async function TextesPage({ searchParams }: Props) {
       <div className="max-w-6xl mx-auto px-8 py-8 flex gap-8">
         {/* ── SIDEBAR ── */}
         <aside className="w-56 shrink-0 hidden lg:block">
-          <div className="sticky top-[76px] space-y-1">
+          <div className="sticky top-19 space-y-1">
             <p className="text-[11px] font-semibold text-[#AAA] uppercase tracking-wider mb-4 px-1">
               Affiner les résultats
             </p>

@@ -31,17 +31,24 @@ function tokenize(text: string): string[] {
         /(?<=[:.]\s{0,3})(?=[IVX]{1,4}\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-záàâéèêëîïôùûü])/g,
         "\n",
       )
-      // Article markers
-      .replace(/(?=\bArticles?\s+(?:\d+\w*|[IVX]+)\s*:)/gi, "\n")
-      // Numbered items glued: ";2. Texte"
-      .replace(/;\s*(?=\d+\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ])/g, "\n")
-      // Bullets glued: ";– " or ".– " or ":– "
-      .replace(/[;.:]\s*(?=–\s)/g, "\n")
-      // Clause keywords after semicolon
+      // Article markers — handles "Article 1er :", "Art. 1er. —", "Art. 2. —"
       .replace(
-        /;\s*(?=(Conscients?|Considérant|Soucieux|Rappelant|Soulignant|Reconnaissant|Profondément|VU\b|SUR\b)[^a-z])/gi,
+        /(?=\bArt(?:icles?)?\s*\.?\s*(?:[1lI]er|\d+\w*|[IVX]+)\s*[.:—\-])/gi,
         "\n",
       )
+
+      // Numbered items glued: ";2. Texte"
+      .replace(/;\s*(?=\d+\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ])/g, "\n")
+
+      // Bullets glued: ";– " or ".– " or ":– " or ", – "
+      .replace(/[;.,:]\s*(?=–\s)/g, "\n")
+
+      // Clause keywords after semicolon (handles French " ;" spacing)
+      .replace(
+        /\s*;\s*(?=(Conscients?|Considérant|Soucieux|Rappelant|Soulignant|Reconnaissant|Profondément|Vu\b|VU\b|Sur\b|SUR\b|Le\s+Conseil|A\s+adopt))/gi,
+        "\n",
+      )
+
       // Signature
       .replace(/\s(?=Fait\s+à\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ])/i, "\n")
       .split("\n")
@@ -95,7 +102,9 @@ function classify(token: string): Block[] {
   }
 
   // Article: "Article 1er : body"
-  const articleMatch = t.match(/^(Articles?\s+(?:\d+\w*|[IVX]+))\s*:\s*(.*)/i);
+  const articleMatch = t.match(
+    /^(Art(?:icles?)?\s*\.?\s*(?:[1lI]er|\d+\w*|[IVX]+))\s*[.:—\-]+\s*(.*)/i,
+  );
   if (articleMatch) {
     return [
       {
@@ -125,8 +134,9 @@ function classify(token: string): Block[] {
 
   // Clause keyword
   const clauseMatch = t.match(
-    /^(VU|SUR|Conscients?|Considérant|Soucieux|Rappelant|Soulignant|Reconnaissant|Profondément\s+\S+)\s+(.*)/i,
+    /^(VU|Vu|SUR|Sur|Conscients?|Considérant|Soucieux|Rappelant|Soulignant|Reconnaissant|Profondément\s+\S+|Le\s+Conseil[^,]*)\s+(.*)/i,
   );
+
   if (clauseMatch) {
     return [
       {
@@ -168,12 +178,12 @@ function parseText(text: string): Block[] {
 
 function ArticleBlock({ block }: { block: Block }) {
   return (
-    <div className="pt-6 first:pt-0 pb-6 border-b border-black/[0.05] last:border-0">
+    <div className="pt-6 first:pt-0 pb-6 border-b border-black/5 last:border-0">
       <div className="flex items-center gap-3 mb-3">
         <span className="text-[11px] font-semibold text-[#4A7FA8] bg-[#EEF3F8] border border-[#1A3A5C]/10 rounded-full px-2.5 py-0.5 tracking-wider uppercase shrink-0">
           {block.label}
         </span>
-        <div className="flex-1 h-px bg-black/[0.05]" />
+        <div className="flex-1 h-px bg-black/5" />
       </div>
       {block.content && (
         <p className="text-sm leading-[1.85] text-[#333] font-light">

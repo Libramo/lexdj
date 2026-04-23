@@ -1,3 +1,7 @@
+import { GavelIcon } from "@/components/ui/gavel";
+import { db } from "@/drizzle/src";
+import { lawsDistinct } from "@/drizzle/src/db/schema";
+import { count } from "drizzle-orm";
 import Link from "next/link";
 
 const navLinks = [
@@ -8,11 +12,12 @@ const navLinks = [
   { href: "/couverture", label: "Couverture" },
 ];
 
-export default function PublicLayout({
+export default async function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [{ total }] = await db.select({ total: count() }).from(lawsDistinct);
   return (
     <div className="min-h-screen flex flex-col bg-[#FAFAF8]">
       {/* Top bar */}
@@ -25,14 +30,14 @@ export default function PublicLayout({
         <div className="max-w-6xl mx-auto px-8 flex items-center justify-between h-[60px]">
           <Link href="/" className="flex items-center gap-3 no-underline">
             <div className="w-8 h-8 bg-[#1A3A5C] rounded-md flex items-center justify-center text-[11px] font-bold text-white tracking-wider">
-              JO
+              <GavelIcon />
             </div>
             <div>
               <div className="text-sm font-medium text-[#111] leading-tight">
-                Journal Officiel
+                LexDJ
               </div>
-              <div className="text-[11px] text-[#666] leading-tight">
-                République de Djibouti
+              <div className="text-[11px] text-[#888] leading-tight">
+                Archive non officielle · JO Djibouti
               </div>
             </div>
           </Link>
@@ -47,12 +52,12 @@ export default function PublicLayout({
                 {label}
               </Link>
             ))}
-            <Link
+            {/* <Link
               href="/dashboard"
               className="text-xs font-medium text-[#1A3A5C] border border-[#1A3A5C] rounded px-3 py-1 hover:bg-[#1A3A5C] hover:text-white transition-colors decoration-0"
             >
               Admin →
-            </Link>
+            </Link> */}
           </nav>
         </div>
       </header>
@@ -65,7 +70,8 @@ export default function PublicLayout({
             © {new Date().getFullYear()} LexDJ · Archive non officielle · Non
             affilié au gouvernement de Djibouti
           </span>
-          <span>37 000+ textes indexés</span>
+          <span>With ❤️ Bly Analytics </span>
+          <span>{Number(total).toLocaleString("fr-FR")} textes indexés</span>
         </div>
       </footer>
     </div>

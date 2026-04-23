@@ -26,6 +26,8 @@ const LOWERCASE_WORDS = new Set([
   "sur",
   "par",
   "pour",
+  "ler",
+  "er",
 ]);
 
 export function toTitleCase(str: string): string {

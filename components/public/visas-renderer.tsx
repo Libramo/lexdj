@@ -6,10 +6,19 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 const PREVIEW_COUNT = 4;
 
 function parseVisas(raw: string): string[] {
-  return raw
-    .split(/(?=\bVU\s)/g)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return (
+    raw
+      // French semicolon + clause keywords
+      .replace(
+        /\s*;\s*(?=(Vu\b|VU\b|Sur\b|SUR\b|Considérant|Rappelant|Soulignant|A\s+adopt|Le\s+Conseil))/gi,
+        "\n",
+      )
+      // Inline VU after period or end of sentence
+      .replace(/\.\s+(?=(VU\b|Vu\b))/g, ".\n")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
 }
 
 export function VisasRenderer({ text }: { text: string }) {
@@ -34,12 +43,20 @@ export function VisasRenderer({ text }: { text: string }) {
 
       <ul className="space-y-1.5">
         {items.map((visa, i) => {
-          const body = visa.startsWith("VU") ? visa.slice(3).trim() : visa;
+          const match = visa.match(
+            /^(Vu|VU|Sur|SUR|Considérant|Rappelant|A\s+adopté|Le\s+Conseil\S*)\s+(.*)/i,
+          );
+          const label = match ? match[1] : null;
+          const body = match ? match[2].trim() : visa;
           return (
             <li key={i} className="flex gap-3 text-sm leading-relaxed">
-              <span className="shrink-0 text-[11px] font-semibold text-[#4A7FA8] bg-[#EEF3F8] rounded px-1.5 py-0.5 h-fit mt-0.5 tracking-wider">
-                VU
-              </span>
+              {label ? (
+                <span className="shrink-0 text-[11px] font-semibold text-[#4A7FA8] bg-[#EEF3F8] rounded px-1.5 py-0.5 h-fit mt-0.5 tracking-wider uppercase">
+                  {label}
+                </span>
+              ) : (
+                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-[#4A7FA8]/30 mt-2" />
+              )}
               <span className="text-[#444] font-light">{body}</span>
             </li>
           );

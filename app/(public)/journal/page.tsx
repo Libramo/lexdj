@@ -6,7 +6,7 @@ import { db } from "@/drizzle/src";
 const PAGE_SIZE = 36;
 
 interface Props {
-  searchParams: Promise<{ page?: string; era?: string }>;
+  searchParams: Promise<{ page?: string; era?: string; q?: string }>;
 }
 
 function formatDate(d: string | null, format: "long" | "short" = "long") {
@@ -62,6 +62,10 @@ export default async function JournalPage({ searchParams }: Props) {
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page ?? "1", 10));
   const eraFilter = params.era ?? "";
+  const q = params.q?.trim() ?? "";
+
+  // console.log("whereClause:", whereClause);
+  console.log("q:", q);
 
   const eraConditions: Record<string, string> = {
     colonial: "issue_date < '1977-06-27'",
@@ -69,10 +73,13 @@ export default async function JournalPage({ searchParams }: Props) {
     modern: "issue_date >= '1990-01-01'",
   };
 
+  const qCondition = q
+    ? `AND (issue_number ILIKE '%${q}%' OR issue_date::text ILIKE '%${q}%')`
+    : "";
   const whereClause =
     eraFilter && eraConditions[eraFilter]
-      ? `WHERE issue_number IS NOT NULL AND ${eraConditions[eraFilter]}`
-      : "WHERE issue_number IS NOT NULL";
+      ? `WHERE issue_number IS NOT NULL AND ${eraConditions[eraFilter]} ${qCondition}`
+      : `WHERE issue_number IS NOT NULL ${qCondition}`;
 
   const [issues, totalResult, stats] = await Promise.all([
     db.execute(
@@ -145,6 +152,7 @@ export default async function JournalPage({ searchParams }: Props) {
     const sp = new URLSearchParams();
     if (p > 1) sp.set("page", String(p));
     if (eraFilter) sp.set("era", eraFilter);
+    if (q) sp.set("q", q);
     const s = sp.toString();
     return `/journal${s ? `?${s}` : ""}`;
   }
@@ -166,6 +174,35 @@ export default async function JournalPage({ searchParams }: Props) {
             {Number(total).toLocaleString("fr-FR")} numéros · de 1904 à
             aujourd'hui
           </p>
+
+          <form method="GET" action="/journal" className="mb-8 w-full">
+            {eraFilter && <input type="hidden" name="era" value={eraFilter} />}
+            <div className="relative">
+              <input
+                type="text"
+                name="q"
+                defaultValue={q}
+                placeholder="Rechercher un numéro ou une date..."
+                className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 text-sm pl-4 pr-12 py-3 rounded-xl focus:outline-none focus:bg-white/15 focus:border-white/40 transition-all"
+              />
+              <button
+                type="submit"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+              </button>
+            </div>
+          </form>
 
           {/* Era filter pills */}
           <div className="flex flex-wrap gap-2">
@@ -207,7 +244,15 @@ export default async function JournalPage({ searchParams }: Props) {
         {/* Results info */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-[#888]">
-            {eraFilter ? (
+            {q ? (
+              <>
+                <span className="font-semibold text-[#111]">
+                  {Number(total).toLocaleString("fr-FR")}
+                </span>{" "}
+                résultat{Number(total) > 1 ? "s" : ""} pour{" "}
+                <span className="font-semibold text-[#111]">« {q} »</span>
+              </>
+            ) : eraFilter ? (
               <>
                 {Number(total).toLocaleString("fr-FR")} numéros ·{" "}
                 {eraLabels[eraFilter]?.label}
@@ -216,9 +261,19 @@ export default async function JournalPage({ searchParams }: Props) {
               <>{Number(total).toLocaleString("fr-FR")} numéros au total</>
             )}
           </p>
-          <span className="text-xs text-[#AAA]">
-            Page {page} / {totalPages}
-          </span>
+          <div className="flex items-center gap-3">
+            {q && (
+              <Link
+                href={`/journal${eraFilter ? `?era=${eraFilter}` : ""}`}
+                className="text-xs text-red-500 hover:underline no-underline"
+              >
+                Effacer
+              </Link>
+            )}
+            <span className="text-xs text-[#AAA]">
+              Page {page} / {totalPages}
+            </span>
+          </div>
         </div>
 
         {/* Grid */}

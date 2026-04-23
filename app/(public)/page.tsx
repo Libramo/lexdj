@@ -17,7 +17,7 @@ import {
   AnimatedSection,
 } from "@/components/public/animated-hero";
 import { db } from "@/drizzle/src";
-import { laws } from "@/drizzle/src/db/schema";
+import { laws, lawsDistinct } from "@/drizzle/src/db/schema";
 import { count, sql } from "drizzle-orm";
 
 async function getStats() {
@@ -25,16 +25,16 @@ async function getStats() {
     await Promise.all([
       db
         .select({ total: count() })
-        .from(laws)
+        .from(lawsDistinct) // ← only this one
         .then((r) => Number(r[0].total)),
       db
         .select({ total: sql<number>`count(distinct ministry)` })
-        .from(laws)
+        .from(laws) // ministries don't change with dedup
         .where(sql`ministry is not null`)
         .then((r) => Number(r[0].total)),
       db
         .select({ total: sql<number>`count(distinct issue_number)` })
-        .from(laws)
+        .from(laws) // issues don't change with dedup
         .where(sql`issue_number is not null`)
         .then((r) => Number(r[0].total)),
       db
@@ -42,7 +42,7 @@ async function getStats() {
           min: sql<number>`extract(year from min(publication_date::date))`,
           max: sql<number>`extract(year from max(publication_date::date))`,
         })
-        .from(laws)
+        .from(laws) // year range doesn't change with dedup
         .where(sql`publication_date is not null`)
         .then((r) => ({ min: Number(r[0].min), max: Number(r[0].max) })),
     ]);

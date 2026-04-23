@@ -5,9 +5,14 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, ChevronDown, ChevronUp, X } from "lucide-react";
 import { toTitleCase } from "@/lib/utils";
 
+interface FilterOption {
+  value: string;
+  count: number;
+}
+
 interface Props {
-  docTypes: string[];
-  ministries: string[];
+  docTypes: FilterOption[];
+  ministries: FilterOption[];
   currentQ: string;
   currentType: string;
   currentMinistry: string;
@@ -28,7 +33,7 @@ function DocTypeFilter({
   currentType,
   onSelect,
 }: {
-  docTypes: string[];
+  docTypes: FilterOption[];
   currentType: string;
   onSelect: (t: string) => void;
 }) {
@@ -54,15 +59,20 @@ function DocTypeFilter({
         </button>
         {visible.map((t) => (
           <button
-            key={t}
-            onClick={() => onSelect(t)}
-            className={`text-left text-sm px-3 py-1.5 rounded-lg transition-colors truncate ${
-              currentType === t
+            key={t.value}
+            onClick={() => onSelect(t.value)}
+            className={`text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between gap-2 ${
+              currentType === t.value
                 ? "bg-[#1A3A5C] text-white font-medium"
                 : "text-[#444] hover:bg-black/[0.04]"
             }`}
           >
-            {t}
+            <span className="truncate">{t.value}</span>
+            <span
+              className={`text-[11px] shrink-0 ${currentType === t.value ? "text-white/60" : "text-[#CCC]"}`}
+            >
+              {t.count.toLocaleString("fr-FR")}
+            </span>
           </button>
         ))}
         {docTypes.length > DOC_TYPE_PREVIEW && (
@@ -187,13 +197,12 @@ export function SearchFilters({
             >
               <option value="">Tous les ministères</option>
               {ministries.map((m) => (
-                <option key={m} value={m}>
-                  {toTitleCase(m)}
+                <option key={m.value} value={m.value}>
+                  {toTitleCase(m.value)} ({m.count.toLocaleString("fr-FR")})
                 </option>
               ))}
             </select>
 
-            {/* Clear */}
             {hasActiveFilters && (
               <button
                 onClick={() => push({ type: "", ministry: "", era: "" })}
