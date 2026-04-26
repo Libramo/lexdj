@@ -35,8 +35,8 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
 
   return (
     <div className="bg-white border border-black/[0.07] rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="grid grid-cols-[1fr_140px_80px] gap-4 px-5 py-3 bg-black/[0.02] border-b border-black/[0.06]">
+      {/* Desktop header */}
+      <div className="hidden md:grid grid-cols-[1fr_140px_80px] gap-4 px-5 py-3 bg-black/[0.02] border-b border-black/[0.06]">
         <span className="text-[11px] font-semibold text-[#888] uppercase tracking-wider">
           Titre
         </span>
@@ -53,31 +53,50 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
         {visible.map((d, i) => (
           <div
             key={i}
-            className="grid grid-cols-[1fr_140px_80px] gap-4 px-5 py-3 items-center hover:bg-[#FAFAF8] transition-colors"
+            className="px-5 py-3 hover:bg-[#FAFAF8] transition-colors"
           >
-            {/* Title */}
-            <div className="min-w-0">
-              <Link
-                href={`/textes/${d.canonical_id}`}
-                className="text-sm font-medium text-[#1A3A5C] hover:underline no-underline block truncate"
-              >
-                {d.title}
-              </Link>
-              <span className="text-xs text-[#AAA]">
-                {formatDate(d.publication_date)}
+            {/* Desktop row */}
+            <div className="hidden md:grid grid-cols-[1fr_140px_80px] gap-4 items-center">
+              <div className="min-w-0">
+                <Link
+                  href={`/textes/${d.canonical_id}`}
+                  className="text-sm font-medium text-[#1A3A5C] hover:underline no-underline block truncate"
+                >
+                  {d.title}
+                </Link>
+                <span className="text-xs text-[#AAA]">
+                  {formatDate(d.publication_date)}
+                </span>
+              </div>
+              <span className="text-xs text-[#888] truncate">
+                {d.issue_number ?? "—"}
               </span>
+              <div className="flex justify-end">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 tabular-nums">
+                  <Copy size={10} />×{d.occurrences}
+                </span>
+              </div>
             </div>
 
-            {/* Issue number */}
-            <span className="text-xs text-[#888] truncate">
-              {d.issue_number ?? "—"}
-            </span>
-
-            {/* Occurrences badge */}
-            <div className="flex justify-end">
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 tabular-nums">
-                <Copy size={10} />×{d.occurrences}
-              </span>
+            {/* Mobile row */}
+            <div className="md:hidden">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/textes/${d.canonical_id}`}
+                    className="text-sm font-medium text-[#1A3A5C] hover:underline no-underline block truncate"
+                  >
+                    {d.title}
+                  </Link>
+                  <span className="text-xs text-[#AAA]">
+                    {formatDate(d.publication_date)}
+                    {d.issue_number && <> · {d.issue_number}</>}
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 tabular-nums shrink-0">
+                  <Copy size={10} />×{d.occurrences}
+                </span>
+              </div>
             </div>
           </div>
         ))}

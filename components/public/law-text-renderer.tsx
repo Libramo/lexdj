@@ -26,6 +26,10 @@ function tokenize(text: string): string[] {
     text
       // PREAMBULE header
       .replace(/^(PREAMBULE)\s+/i, "PREAMBULE\n")
+
+      // CHAPITRE marker
+      .replace(/(?=\bCHAPITRE\s+[IVX\d]+)/gi, "\n")
+
       // Roman section after ": " or ". " — e.g. "suit : I. Des questions" or ". II. Mise"
       .replace(
         /(?<=[:.]\s{0,3})(?=[IVX]{1,4}\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-záàâéèêëîïôùûü])/g,

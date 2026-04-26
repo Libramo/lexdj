@@ -1,11 +1,10 @@
-import { sql, desc, count } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { SearchInput } from "@/components/public/search-input";
 import { SearchFilters } from "@/components/public/search-filters";
 import { toTitleCase } from "@/lib/utils";
 import { db } from "@/drizzle/src";
-import { laws } from "@/drizzle/src/db/schema";
 
 const PAGE_SIZE = 15;
 

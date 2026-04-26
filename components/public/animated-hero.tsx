@@ -320,7 +320,7 @@ export function AnimatedSection({
 
 export function AnimatedDocTypes() {
   return (
-    <section className="border-t border-black/[0.06] bg-white">
+    <section className="border-t border-black/6 bg-white">
       <div className="max-w-6xl mx-auto px-8 py-14">
         <FadeUp>
           <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111] mb-8">
@@ -364,7 +364,7 @@ const MINISTRIES = [
 
 export function AnimatedMinistries() {
   return (
-    <section className="border-t border-black/[0.06] bg-[#FAFAF8]">
+    <section className="border-t border-black/6 bg-[#FAFAF8]">
       <div className="max-w-6xl mx-auto px-8 py-14">
         <FadeUp>
           <div className="flex items-center justify-between mb-8">
@@ -384,7 +384,7 @@ export function AnimatedMinistries() {
             <StaggerItem key={m}>
               <Link
                 href={`/ministeres/${encodeURIComponent(m)}`}
-                className="text-sm text-[#444] bg-white border border-black/[0.08] rounded-full px-4 py-1.5 hover:border-[#1A3A5C]/40 hover:text-[#1A3A5C] hover:-translate-y-0.5 transition-all no-underline"
+                className="text-sm text-[#444] bg-white border border-black/8 rounded-full px-4 py-1.5 hover:border-[#1A3A5C]/40 hover:text-[#1A3A5C] hover:-translate-y-0.5 transition-all no-underline"
               >
                 {toTitleCase(m)}
               </Link>
@@ -400,7 +400,7 @@ export function AnimatedMinistries() {
 
 export function AnimatedCTA() {
   return (
-    <section className="border-t border-black/[0.06] bg-[#1A3A5C]">
+    <section className="border-t border-black/6 bg-[#1A3A5C]">
       <FadeUp>
         <div className="max-w-6xl mx-auto px-8 py-16 flex flex-col md:flex-row items-center justify-between gap-8">
           <div>
@@ -422,7 +422,7 @@ export function AnimatedCTA() {
               GET /api/v1/laws?ministry=Justice
             </motion.div>
             <Link
-              href="#"
+              href="/api"
               className="flex items-center justify-center gap-2 bg-white text-[#1A3A5C] text-sm font-medium rounded-lg px-6 py-3 hover:bg-[#EEF3F8] transition-colors no-underline"
             >
               Documentation API <ArrowRight size={14} />

@@ -6,6 +6,7 @@ import {
   timestamp,
   index,
   pgView,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const laws = pgTable(
@@ -28,6 +29,7 @@ export const laws = pgTable(
     issue_number: text("issue_number"),
     issue_date: date("issue_date"),
     source_url: text("source_url"),
+    ocr_corrected: boolean("ocr_corrected").default(false),
   },
   (table) => [
     index("laws_ministry_idx").on(table.ministry),
@@ -48,6 +50,15 @@ export const lawsDistinct = pgView("laws_distinct", {
   mesure: text("mesure"),
   issue_number: text("issue_number"),
   intro_text: text("intro_text"),
+  full_text: text("full_text"),
+  visas_text: text("visas_text"),
+  signed_by: text("signed_by"),
+  verbe: text("verbe"),
+  period: text("period"),
+  pdf_links: text("pdf_links").array(),
+  issue_date: text("issue_date"),
+  source_url: text("source_url"),
+  ocr_corrected: boolean("ocr_corrected"),
 }).existing();
 
 export const scrape_logs = pgTable("scrape_logs", {

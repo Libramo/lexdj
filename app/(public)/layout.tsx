@@ -26,8 +26,9 @@ export default async function PublicLayout({
       <footer className="bg-white border-t border-black/[0.07] py-6">
         <div className="max-w-6xl mx-auto px-8 flex justify-between items-center text-xs text-[#AAA]">
           <span>
-            © {new Date().getFullYear()} LexDJ · Archive non officielle · Non
-            affilié au gouvernement de Djibouti
+            © {new Date().getFullYear()} LexDJ · <br />
+            Archive non officielle · <br />
+            Non affilié au gouvernement de Djibouti
           </span>
           <span>With ❤️ Bly Analytics </span>
           <span>{Number(total).toLocaleString("fr-FR")} textes indexés</span>

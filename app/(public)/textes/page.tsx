@@ -24,21 +24,19 @@ const ERA_CONDITIONS: Record<string, any> = {
   modern: sql`publication_date >= '1990-01-01'`,
 };
 
-const DOC_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  Loi: { bg: "bg-blue-50", text: "text-blue-700" },
-  Décret: { bg: "bg-violet-50", text: "text-violet-700" },
-  Arrêté: { bg: "bg-amber-50", text: "text-amber-700" },
-  Ordonnance: { bg: "bg-rose-50", text: "text-rose-700" },
-  Circulaire: { bg: "bg-cyan-50", text: "text-cyan-700" },
-  Délibération: { bg: "bg-emerald-50", text: "text-emerald-700" },
-  Décision: { bg: "bg-orange-50", text: "text-orange-700" },
+const DOC_TYPE_COLORS: Record<string, string> = {
+  Loi: "bg-blue-50 text-blue-700",
+  Décret: "bg-violet-50 text-violet-700",
+  Arrêté: "bg-amber-50 text-amber-700",
+  Ordonnance: "bg-rose-50 text-rose-700",
+  Circulaire: "bg-cyan-50 text-cyan-700",
+  Délibération: "bg-emerald-50 text-emerald-700",
+  Décision: "bg-orange-50 text-orange-700",
 };
 
-function getDocTypeStyle(type: string | null) {
-  if (!type) return { bg: "bg-gray-50", text: "text-gray-500" };
-  return (
-    DOC_TYPE_COLORS[type] ?? { bg: "bg-[#EEF3F8]", text: "text-[#1A3A5C]" }
-  );
+function getDocTypeClass(type: string | null): string {
+  if (!type) return "bg-gray-50 text-gray-500";
+  return DOC_TYPE_COLORS[type] ?? "bg-[#EEF3F8] text-[#1A3A5C]";
 }
 
 function formatDate(d: string | null) {
@@ -126,7 +124,6 @@ export default async function TextesPage({ searchParams }: Props) {
         .limit(PAGE_SIZE)
         .offset((page - 1) * PAGE_SIZE),
       getFilterOptions(),
-      // Count by doc type for the header chips
       db
         .select({ doc_type: lawsDistinct.doc_type, count: count() })
         .from(lawsDistinct)
@@ -149,13 +146,13 @@ export default async function TextesPage({ searchParams }: Props) {
 
   return (
     <div className="min-h-screen bg-[#FAFAF8]">
-      {/* ── HEADER ── */}
+      {/* ── HEADER ────────────────────────────────────────────────── */}
       <div className="bg-[#1A3A5C] text-white">
-        <div className="max-w-6xl mx-auto px-8 py-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-10 sm:py-12">
           <p className="text-white/50 text-xs uppercase tracking-widest font-medium mb-3">
             Journal Officiel · Djibouti
           </p>
-          <h1 className="font-['Libre_Baskerville'] text-4xl font-normal leading-tight mb-2">
+          <h1 className="font-['Libre_Baskerville'] text-3xl sm:text-4xl font-normal leading-tight mb-2">
             Textes <em className="text-[#9DC4E0]">officiels</em>
           </h1>
           <p className="text-white/50 text-sm font-light mb-8">
@@ -203,8 +200,8 @@ export default async function TextesPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-8 py-8 flex gap-8">
-        {/* ── SIDEBAR ── */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8 flex gap-8">
+        {/* ── SIDEBAR ───────────────────────────────────────────────── */}
         <aside className="w-56 shrink-0 hidden lg:block">
           <div className="sticky top-19 space-y-1">
             <p className="text-[11px] font-semibold text-[#AAA] uppercase tracking-wider mb-4 px-1">
@@ -220,7 +217,7 @@ export default async function TextesPage({ searchParams }: Props) {
           </div>
         </aside>
 
-        {/* ── RESULTS ── */}
+        {/* ── RESULTS ───────────────────────────────────────────────── */}
         <div className="flex-1 min-w-0">
           {/* Mobile filters */}
           <div className="lg:hidden mb-4">
@@ -269,82 +266,85 @@ export default async function TextesPage({ searchParams }: Props) {
             </div>
           )}
 
-          {/* Results list */}
+          {/* ── RESULTS LIST ────────────────────────────────────────── */}
           {rows.length > 0 && (
             <div className="flex flex-col gap-2">
-              {rows.map((law, i) => {
-                const style = getDocTypeStyle(law.doc_type);
+              {rows.map((law) => {
+                const docTypeClass = getDocTypeClass(law.doc_type);
                 const era = getEraTag(law.publication_date);
 
                 return (
                   <Link
                     key={law.id}
                     href={`/textes/${law.id}`}
-                    className="group bg-white border border-black/[0.07] rounded-xl px-5 py-4 hover:border-[#1A3A5C]/25 hover:shadow-sm transition-all no-underline block"
+                    className="group bg-white border border-black/[0.07] rounded-xl px-4 py-3.5 sm:px-5 sm:py-4 hover:border-[#1A3A5C]/25 hover:shadow-sm transition-all no-underline block"
                   >
-                    <div className="flex items-start gap-4">
-                      {/* Left — doc type badge */}
-                      <div className="shrink-0 pt-0.5 w-24 text-right">
-                        <span
-                          className={`text-[11px] font-semibold rounded-md px-2 py-0.5 ${style.bg} ${style.text}`}
-                        >
-                          {law.doc_type ?? "—"}
-                        </span>
-                      </div>
+                    {/* ── Row 1: badge + date on same line (all screens) ── */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span
+                        className={`shrink-0 text-[11px] font-semibold rounded-md px-2 py-0.5 ${docTypeClass}`}
+                      >
+                        {law.doc_type ?? "—"}
+                      </span>
 
-                      {/* Center — main content */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#111] leading-snug group-hover:text-[#1A3A5C] transition-colors line-clamp-2 mb-1.5">
-                          {law.title ?? "Sans titre"}
-                        </p>
-
-                        {/* Excerpt */}
-                        {law.intro_text && (
-                          <p className="text-xs text-[#AAA] leading-relaxed line-clamp-1 mb-2 font-light">
-                            {law.intro_text.slice(0, 120)}
-                          </p>
-                        )}
-
-                        <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5">
-                          {law.reference_number && (
-                            <span className="flex items-center gap-1 text-[11px] font-mono text-[#BBB]">
-                              <Hash size={9} />
-                              {law.reference_number}
-                            </span>
-                          )}
-                          {law.ministry && (
-                            <span className="text-[11px] text-[#999] truncate max-w-[200px]">
-                              {toTitleCase(law.ministry)}
-                            </span>
-                          )}
-                          {era && (
-                            <span
-                              className={`text-[10px] font-medium ${era.color}`}
-                            >
-                              {era.label}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Right — date + issue + arrow */}
-                      <div className="shrink-0 flex flex-col items-end gap-1 pt-0.5 min-w-[80px]">
+                      <div className="flex items-center gap-2 shrink-0">
                         {law.publication_date && (
                           <span className="text-xs text-[#AAA] tabular-nums whitespace-nowrap">
                             {formatDate(law.publication_date)}
                           </span>
                         )}
                         {law.issue_number && (
-                          <span className="flex items-center gap-1 text-[10px] text-[#CCC]">
+                          <span className="hidden sm:flex items-center gap-1 text-[10px] text-[#CCC]">
                             <BookOpen size={9} />
                             {law.issue_number}
                           </span>
                         )}
                         <ArrowRight
                           size={13}
-                          className="text-[#DDD] group-hover:text-[#1A3A5C] group-hover:translate-x-0.5 transition-all mt-1"
+                          className="text-[#DDD] group-hover:text-[#1A3A5C] group-hover:translate-x-0.5 transition-all"
                         />
                       </div>
+                    </div>
+
+                    {/* ── Row 2: title ─────────────────────────────────── */}
+                    <p className="text-sm font-semibold text-[#111] leading-snug group-hover:text-[#1A3A5C] transition-colors line-clamp-2 mb-1.5">
+                      {law.title ?? "Sans titre"}
+                    </p>
+
+                    {/* ── Row 3: intro excerpt ─────────────────────────── */}
+                    {law.intro_text && (
+                      <p className="text-xs text-[#AAA] leading-relaxed line-clamp-1 mb-2 font-light">
+                        {law.intro_text.slice(0, 120)}
+                      </p>
+                    )}
+
+                    {/* ── Row 4: meta chips ────────────────────────────── */}
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5">
+                      {law.reference_number && (
+                        <span className="flex items-center gap-1 text-[11px] font-mono text-[#BBB]">
+                          <Hash size={9} />
+                          {law.reference_number}
+                        </span>
+                      )}
+                      {law.ministry && (
+                        <span className="text-[11px] text-[#999] truncate max-w-[200px]">
+                          {toTitleCase(law.ministry)}
+                        </span>
+                      )}
+                      {era && (
+                        <span
+                          className={`text-[10px] font-medium ${era.color}`}
+                        >
+                          {era.label}
+                        </span>
+                      )}
+                      {/* Issue number on mobile (hidden in row 1) */}
+                      {law.issue_number && (
+                        <span className="sm:hidden flex items-center gap-1 text-[10px] text-[#CCC]">
+                          <BookOpen size={9} />
+                          {law.issue_number}
+                        </span>
+                      )}
                     </div>
                   </Link>
                 );
@@ -352,7 +352,7 @@ export default async function TextesPage({ searchParams }: Props) {
             </div>
           )}
 
-          {/* Pagination */}
+          {/* ── PAGINATION ──────────────────────────────────────────── */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-8 pt-6 border-t border-black/[0.06]">
               <span className="text-sm text-[#888]">
@@ -364,7 +364,7 @@ export default async function TextesPage({ searchParams }: Props) {
                 {page > 1 && (
                   <Link
                     href={pageUrl(page - 1)}
-                    className="px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                    className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
                   >
                     ← Précédent
                   </Link>
