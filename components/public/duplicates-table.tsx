@@ -36,7 +36,7 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
   return (
     <div className="bg-white border border-black/[0.07] rounded-xl overflow-hidden">
       {/* Desktop header */}
-      <div className="hidden md:grid grid-cols-[1fr_140px_80px] gap-4 px-5 py-3 bg-black/[0.02] border-b border-black/[0.06]">
+      <div className="hidden md:grid grid-cols-[1fr_140px_80px] gap-4 px-5 py-3 bg-black/2 border-b border-black/6">
         <span className="text-[11px] font-semibold text-[#888] uppercase tracking-wider">
           Titre
         </span>
@@ -49,7 +49,7 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-black/[0.05]">
+      <div className="divide-y divide-black/5">
         {visible.map((d, i) => (
           <div
             key={i}
@@ -103,7 +103,7 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-black/[0.06] px-5 py-3 flex items-center justify-between bg-black/[0.01]">
+      <div className="border-t border-black/6 px-5 py-3 flex items-center justify-between bg-black/1">
         <span className="text-xs text-[#AAA]">
           {expanded
             ? `${duplicates.length} groupes · ${totalExtra} entrées en trop`

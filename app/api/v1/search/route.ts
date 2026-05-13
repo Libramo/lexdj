@@ -1,22 +1,17 @@
 // app/api/v1/search/route.ts
-// FTS search — mirrors the /recherche page query logic.
-//
-// GET /api/v1/search?q=décret&limit=15&page=1&type=Loi&ministry=...&era=colonial&sort=relevance
-
 import { NextRequest } from "next/server";
-import { db } from "@/drizzle/src";
-import { sql } from "drizzle-orm";
+import { typesenseClient } from "@/lib/typesense";
+import { LAWS_COLLECTION } from "@/lib/typesense-schema";
 import { corsJson, handleOptions } from "@/lib/cors";
 
 export function OPTIONS() {
   return handleOptions();
 }
 
-const ERA_CONDITIONS: Record<string, string> = {
-  colonial: "publication_date < '1977-06-27'",
-  independence:
-    "publication_date >= '1977-06-27' AND publication_date < '1990-01-01'",
-  modern: "publication_date >= '1990-01-01'",
+const ERA_FILTERS: Record<string, string> = {
+  colonial: "publication_date:<1977-06-27",
+  independence: "publication_date:>=1977-06-27 && publication_date:<1990-01-01",
+  modern: "publication_date:>=1990-01-01",
 };
 
 export async function GET(req: NextRequest) {
@@ -28,7 +23,6 @@ export async function GET(req: NextRequest) {
     50,
     Math.max(1, Number(searchParams.get("limit") ?? 15)),
   );
-  const offset = (page - 1) * limit;
   const typeFilter = searchParams.get("type") ?? "";
   const ministryFilter = searchParams.get("ministry") ?? "";
   const eraFilter = searchParams.get("era") ?? "";
@@ -36,75 +30,61 @@ export async function GET(req: NextRequest) {
 
   if (!q && !typeFilter && !ministryFilter && !eraFilter) {
     return corsJson(
-      {
-        error: "Provide at least a query parameter: q, type, ministry, or era",
-      },
+      { error: "Provide at least one parameter: q, type, ministry, or era" },
       400,
     );
   }
 
-  const qSafe = q.replace(/'/g, "''");
+  // Build Typesense filter_by string
+  const filters: string[] = [];
+  if (typeFilter) filters.push(`doc_type:=${typeFilter}`);
+  if (ministryFilter) filters.push(`ministry_normalized:=${ministryFilter}`);
+  if (eraFilter && ERA_FILTERS[eraFilter]) filters.push(ERA_FILTERS[eraFilter]);
+  const filterBy = filters.join(" && ");
 
-  const conditions: string[] = [];
-  if (q)
-    conditions.push(`(
-    to_tsvector('french', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')) @@ plainto_tsquery('french', '${qSafe}')
-    OR
-    to_tsvector('simple', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')) @@ plainto_tsquery('simple', '${qSafe}')
-  )`);
-  if (typeFilter)
-    conditions.push(`doc_type = '${typeFilter.replace(/'/g, "''")}'`);
-  if (ministryFilter)
-    conditions.push(`ministry = '${ministryFilter.replace(/'/g, "''")}'`);
-  if (eraFilter && ERA_CONDITIONS[eraFilter])
-    conditions.push(ERA_CONDITIONS[eraFilter]);
-
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  const orderClause =
+  // Sort
+  const sortBy =
     sort === "date_desc"
-      ? "ORDER BY publication_date DESC NULLS LAST"
+      ? "pub_year:desc"
       : sort === "date_asc"
-        ? "ORDER BY publication_date ASC NULLS LAST"
+        ? "pub_year:asc"
         : q
-          ? `ORDER BY (
-      ts_rank(to_tsvector('french', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')), plainto_tsquery('french', '${qSafe}'))
-      +
-      ts_rank(to_tsvector('simple', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')), plainto_tsquery('simple', '${qSafe}'))
-    ) DESC`
-          : "ORDER BY publication_date DESC NULLS LAST";
-
-  const excerptExpr = q
-    ? `ts_headline('simple',
-        COALESCE(intro_text,'') || ' ' || COALESCE(full_text,''),
-        plainto_tsquery('simple', '${qSafe}'),
-        'MaxFragments=2, MaxWords=15, MinWords=8, FragmentDelimiter= ... , StartSel=<<<, StopSel=>>>'
-      )`
-    : `intro_text`;
+          ? "_text_match:desc,pub_year:desc"
+          : "pub_year:desc";
 
   try {
-    const [results, totalResult] = await Promise.all([
-      db.execute(
-        sql.raw(`
-        SELECT id, title, doc_type, ministry, publication_date,
-               reference_number, issue_number,
-               ${excerptExpr} as excerpt
-        FROM laws_distinct
-        ${whereClause}
-        ${orderClause}
-        LIMIT ${limit} OFFSET ${offset}
-      `),
-      ),
-      db.execute(
-        sql.raw(`SELECT COUNT(*) as total FROM laws_distinct ${whereClause}`),
-      ),
-    ]);
+    const result = await typesenseClient
+      .collections(LAWS_COLLECTION)
+      .documents()
+      .search({
+        q: q || "*",
+        query_by: "title,reference_number,intro_text,full_text",
+        query_by_weights: "4,3,2,1",
+        filter_by: filterBy || undefined,
+        sort_by: sortBy,
+        page,
+        per_page: limit,
+        num_typos: 1,
+        prefix: false,
+        highlight_fields: "title,intro_text",
+        snippet_threshold: 30,
+        include_fields:
+          "id,title,doc_type,ministry,publication_date,reference_number,issue_number,intro_text",
+      });
 
-    const total = Number((totalResult.rows[0] as any)?.total ?? 0);
+    const total = result.found;
+    const data =
+      result.hits?.map((hit: any) => ({
+        ...hit.document,
+        id: parseInt(hit.document.id),
+        excerpt:
+          hit.highlights?.find((h: any) => h.field === "intro_text")?.snippet ??
+          hit.document.intro_text?.slice(0, 200) ??
+          "",
+      })) ?? [];
 
     return corsJson({
-      data: results.rows,
+      data,
       meta: {
         q,
         page,

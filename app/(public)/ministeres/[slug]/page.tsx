@@ -1,4 +1,4 @@
-import { eq, desc, count, sql } from "drizzle-orm";
+import { eq, desc, count, sql, and } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Building2, FileText } from "lucide-react";
@@ -36,7 +36,12 @@ export default async function MinistryPage({ params, searchParams }: Props) {
   const [exists] = await db
     .select({ count: count() })
     .from(laws)
-    .where(eq(laws.ministry, ministry));
+    .where(
+      and(
+        eq(laws.ministry, ministry),
+        sql`${laws.id} NOT IN (SELECT id FROM duplicate_laws)`,
+      ),
+    );
 
   if (!exists || Number(exists.count) === 0) notFound();
 
@@ -44,13 +49,18 @@ export default async function MinistryPage({ params, searchParams }: Props) {
   const docTypes = await db
     .select({ doc_type: laws.doc_type, count: count() })
     .from(laws)
-    .where(eq(laws.ministry, ministry))
+    .where(
+      and(
+        eq(laws.ministry, ministry),
+        sql`${laws.id} NOT IN (SELECT id FROM duplicate_laws)`,
+      ),
+    )
     .groupBy(laws.doc_type)
     .orderBy(desc(count()));
 
   const whereClause = typeFilter
-    ? sql`ministry = ${ministry} AND doc_type = ${typeFilter}`
-    : eq(laws.ministry, ministry);
+    ? sql`ministry = ${ministry} AND doc_type = ${typeFilter} AND id NOT IN (SELECT id FROM duplicate_laws)`
+    : sql`ministry = ${ministry} AND id NOT IN (SELECT id FROM duplicate_laws)`;
 
   const [{ total }, rows] = await Promise.all([
     db
@@ -99,7 +109,7 @@ export default async function MinistryPage({ params, searchParams }: Props) {
       </div>
 
       {/* Header */}
-      <div className="mb-8 pb-8 border-b border-black/[0.06]">
+      <div className="mb-8 pb-8 border-b border-black/6">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#1A3A5C] flex items-center justify-center shrink-0">
             <Building2 size={20} className="text-white" />
@@ -121,7 +131,7 @@ export default async function MinistryPage({ params, searchParams }: Props) {
             className={`text-xs font-medium rounded-full px-3 py-1.5 transition-colors no-underline border ${
               !typeFilter
                 ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
-                : "text-[#666] border-black/[0.1] hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C]"
+                : "text-[#666] border-black/10 hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C]"
             }`}
           >
             Tous ({Number(exists.count).toLocaleString("fr-FR")})
@@ -135,7 +145,7 @@ export default async function MinistryPage({ params, searchParams }: Props) {
                 className={`text-xs font-medium rounded-full px-3 py-1.5 transition-colors no-underline border ${
                   typeFilter === d.doc_type
                     ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
-                    : "text-[#666] border-black/[0.1] hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C]"
+                    : "text-[#666] border-black/10 hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C]"
                 }`}
               >
                 {d.doc_type} ({Number(d.count).toLocaleString("fr-FR")})
@@ -151,7 +161,7 @@ export default async function MinistryPage({ params, searchParams }: Props) {
       </p>
 
       {/* Laws list */}
-      <div className="flex flex-col divide-y divide-black/[0.06] border border-black/[0.07] rounded-xl overflow-hidden bg-white mb-6">
+      <div className="flex flex-col divide-y divide-black/6 border border-black/[0.07] rounded-xl overflow-hidden bg-white mb-6">
         {rows.map((law) => (
           <Link
             key={law.id}
@@ -208,7 +218,7 @@ export default async function MinistryPage({ params, searchParams }: Props) {
             {page > 1 && (
               <Link
                 href={pageUrl(page - 1)}
-                className="px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
               >
                 ← Précédent
               </Link>
@@ -216,7 +226,7 @@ export default async function MinistryPage({ params, searchParams }: Props) {
             {page < totalPages && (
               <Link
                 href={pageUrl(page + 1)}
-                className="px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
               >
                 Suivant →
               </Link>

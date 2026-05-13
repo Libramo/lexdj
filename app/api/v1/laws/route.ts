@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const era = searchParams.get("era") ?? "";
 
   // Build WHERE
-  const conditions: string[] = [];
+  const conditions: string[] = ["id NOT IN (SELECT id FROM duplicate_laws)"];
   if (type) conditions.push(`doc_type = '${type.replace(/'/g, "''")}'`);
   if (ministry) conditions.push(`ministry = '${ministry.replace(/'/g, "''")}'`);
   if (era === "colonial") conditions.push(`publication_date < '1977-06-27'`);
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
           intro_text,
           signed_by,
           source_url
-        FROM laws_distinct
+        FROM laws
         ${where}
         ORDER BY publication_date DESC NULLS LAST
         LIMIT ${limit} OFFSET ${offset}
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       ),
       db.execute(
         sql.raw(`
-        SELECT COUNT(*)::int as total FROM laws_distinct ${where}
+        SELECT COUNT(*)::int as total FROM laws ${where}
       `),
       ),
     ]);

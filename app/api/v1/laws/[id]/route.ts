@@ -27,8 +27,8 @@ export async function GET(
         publication_date, issue_number, issue_date,
         intro_text, full_text, visas_text, signed_by,
         mesure, verbe, period, pdf_links, source_url
-      FROM laws_distinct
-      WHERE id = ${numId}
+      FROM laws
+      WHERE id = ${numId} AND id NOT IN (SELECT id FROM duplicate_laws)
       LIMIT 1
     `),
     );

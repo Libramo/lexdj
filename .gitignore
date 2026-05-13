@@ -35,6 +35,8 @@ yarn-error.log*
 
 # huge files
 jo_backup.dump
+eJO_backup_full.dump
+eJO_backup.dump
 
 # vercel
 .vercel
@@ -42,3 +44,6 @@ jo_backup.dump
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# handoffs
+handoff-ejo-scraper.md

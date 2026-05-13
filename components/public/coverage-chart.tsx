@@ -52,7 +52,7 @@ export function DecadeChart({ data }: { data: DecadeData[] }) {
             <span className="text-sm font-medium text-[#555] w-14 shrink-0 tabular-nums text-right">
               {d.decade}s
             </span>
-            <div className="flex-1 h-7 bg-black/[0.03] rounded-lg overflow-hidden relative">
+            <div className="flex-1 h-7 bg-black/3 rounded-lg overflow-hidden relative">
               <motion.div
                 className={`h-full ${bar} rounded-lg flex items-center`}
                 initial={{ width: 0 }}
@@ -83,7 +83,7 @@ export function DecadeChart({ data }: { data: DecadeData[] }) {
       })}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 pt-3 border-t border-black/[0.05]">
+      <div className="flex flex-wrap gap-3 pt-3 border-t border-black/5">
         {[
           { color: "bg-amber-300", label: "Période coloniale" },
           { color: "bg-violet-400", label: "Post-indépendance" },
@@ -141,7 +141,7 @@ export function AnimatedKPI({
       </p>
       <p className="text-xs text-[#AAA] mt-1">{sublabel}</p>
       {barPct !== undefined && (
-        <div className="mt-3 h-1.5 bg-black/[0.05] rounded-full overflow-hidden">
+        <div className="mt-3 h-1.5 bg-black/5 rounded-full overflow-hidden">
           <motion.div
             className={`h-full rounded-full ${color}`}
             initial={{ width: 0 }}

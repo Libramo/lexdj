@@ -1,9 +1,9 @@
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Calendar, FileText } from "lucide-react";
 import { db } from "@/drizzle/src";
-import { laws, scrape_logs } from "@/drizzle/src/db/schema";
+import { issues, laws, scrape_logs } from "@/drizzle/src/db/schema";
 import { toTitleCase } from "@/lib/utils";
 import { InaccessiblesSection } from "@/components/public/inaccessibles-section";
 
@@ -24,20 +24,14 @@ function formatDate(d: string | null) {
   }
 }
 
-function toPortalIssueUrl(issueNumber: string): string | null {
-  const match = issueNumber.match(
-    /n°\s*0*(\d+)\s*du\s+(\d{2})\/(\d{2})\/(\d{4})/i,
-  );
-  if (!match) return null;
-  const [, num, dd, mm, yyyy] = match;
-  return `https://www.journalofficiel.dj/journal-officiel/n${num}-du-${dd}-${mm}-${yyyy}/`;
-}
-
 export default async function IssuePage({ params }: Props) {
   const { issue: issueParts } = await params;
   const issue = issueParts.map(decodeURIComponent).join("/");
 
+  console.log("Issue : ", issue);
+
   const [rows, missingRows] = await Promise.all([
+    // Laws for this issue — exclude duplicates
     db
       .select({
         id: laws.id,
@@ -51,10 +45,15 @@ export default async function IssuePage({ params }: Props) {
         signed_by: laws.signed_by,
       })
       .from(laws)
-      .where(eq(laws.issue_number, issue))
+      .where(
+        and(
+          eq(laws.issue_number, issue),
+          sql`${laws.id} NOT IN (SELECT id FROM duplicate_laws)`,
+        ),
+      )
       .orderBy(laws.id),
 
-    // 404 laws for this issue from scrape_logs
+    // Inaccessible laws for this issue — slugless base_url entries from scrape_logs
     db
       .select({
         url: scrape_logs.url,
@@ -62,7 +61,9 @@ export default async function IssuePage({ params }: Props) {
         ministry: scrape_logs.ministry,
       })
       .from(scrape_logs)
-      .where(sql`issue_number = ${issue} AND status = '404' AND level = 'law'`)
+      .where(
+        sql`issue_number = ${issue} AND status = 'base_url' AND level = 'law'`,
+      )
       .orderBy(scrape_logs.id),
   ]);
 
@@ -71,29 +72,33 @@ export default async function IssuePage({ params }: Props) {
   const issueDate = rows[0]?.issue_date ?? null;
 
   const [prevIssue, nextIssue, issueUrl] = await Promise.all([
+    // Previous issue — exclude duplicates to avoid navigating to a duplicate
     db
       .select({ issue_number: laws.issue_number })
       .from(laws)
       .where(
-        sql`issue_date < ${issueDate} AND issue_number IS NOT NULL AND issue_date IS NOT NULL`,
+        sql`issue_date < ${issueDate} AND issue_number IS NOT NULL AND issue_date IS NOT NULL AND id NOT IN (SELECT id FROM duplicate_laws)`,
       )
       .orderBy(desc(laws.issue_date))
       .limit(1)
       .then((r) => r[0]?.issue_number ?? null),
+
+    // Next issue — exclude duplicates
     db
       .select({ issue_number: laws.issue_number })
       .from(laws)
       .where(
-        sql`issue_date > ${issueDate} AND issue_number IS NOT NULL AND issue_date IS NOT NULL`,
+        sql`issue_date > ${issueDate} AND issue_number IS NOT NULL AND issue_date IS NOT NULL AND id NOT IN (SELECT id FROM duplicate_laws)`,
       )
       .orderBy(laws.issue_date)
       .limit(1)
       .then((r) => r[0]?.issue_number ?? null),
 
+    // Real issue URL from issues table
     db
-      .select({ url: scrape_logs.url })
-      .from(scrape_logs)
-      .where(sql`issue_number = ${issue} AND level = 'issue'`)
+      .select({ url: issues.source_url })
+      .from(issues)
+      .where(eq(issues.issue_number, issue))
       .limit(1)
       .then((r) => r[0]?.url ?? null),
   ]);
@@ -142,7 +147,7 @@ export default async function IssuePage({ params }: Props) {
       </div>
 
       {/* Header */}
-      <div className="mb-8 pb-8 border-b border-black/[0.06]">
+      <div className="mb-8 pb-8 border-b border-black/6">
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -154,15 +159,15 @@ export default async function IssuePage({ params }: Props) {
               </span>
             </div>
             <h1 className="font-['Libre_Baskerville'] text-3xl font-normal text-[#111]">
-              Numéro {issue}
+              Numéro du {issue.slice(2)}
             </h1>
             {issueDate && (
               <div className="flex items-center gap-2 mt-2 text-sm text-[#888]">
                 <Calendar size={13} />
                 {formatDate(issueDate)}
-                {toPortalIssueUrl(issue) && (
+                {issueUrl && (
                   <a
-                    href={toPortalIssueUrl(issue)!}
+                    href={issueUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-[#4A7FA8] hover:underline no-underline mt-1"
@@ -209,7 +214,7 @@ export default async function IssuePage({ params }: Props) {
                 %
               </span>
             </div>
-            <div className="h-1.5 bg-black/[0.05] rounded-full overflow-hidden">
+            <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
               <div
                 className="h-full bg-[#1A3A5C] rounded-full"
                 style={{
@@ -225,17 +230,17 @@ export default async function IssuePage({ params }: Props) {
           {prevIssue && (
             <Link
               href={`/journal/${prevIssue.split("/").map(encodeURIComponent).join("/")}`}
-              className="flex items-center gap-2 px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C] transition-colors no-underline text-[#666]"
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-black/10 rounded-lg hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C] transition-colors no-underline text-[#666]"
             >
-              <ArrowLeft size={13} /> N° {prevIssue}
+              <ArrowLeft size={13} /> {prevIssue.toUpperCase()}
             </Link>
           )}
           {nextIssue && (
             <Link
               href={`/journal/${nextIssue.split("/").map(encodeURIComponent).join("/")}`}
-              className="flex items-center gap-2 px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C] transition-colors no-underline text-[#666]"
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-black/10 rounded-lg hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C] transition-colors no-underline text-[#666]"
             >
-              N° {nextIssue} <ArrowRight size={13} />
+              {nextIssue.toUpperCase()} <ArrowRight size={13} />
             </Link>
           )}
         </div>
@@ -250,9 +255,9 @@ export default async function IssuePage({ params }: Props) {
                 {docType}
               </span>
               <span className="text-xs text-[#CCC]">{items.length}</span>
-              <div className="flex-1 h-px bg-black/[0.06]" />
+              <div className="flex-1 h-px bg-black/6" />
             </div>
-            <div className="flex flex-col divide-y divide-black/[0.05] border border-black/[0.07] rounded-xl overflow-hidden bg-white">
+            <div className="flex flex-col divide-y divide-black/5 border border-black/[0.07] rounded-xl overflow-hidden bg-white">
               {items.map((law) => (
                 <Link
                   key={law.id}
@@ -270,7 +275,7 @@ export default async function IssuePage({ params }: Props) {
                         </span>
                       )}
                       {law.ministry && (
-                        <span className="text-xs text-[#888] truncate max-w-[280px]">
+                        <span className="text-xs text-[#888] truncate max-w-70">
                           {toTitleCase(law.ministry)}
                         </span>
                       )}

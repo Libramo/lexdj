@@ -12,6 +12,7 @@ async function getRecentIssues() {
     FROM laws
     WHERE issue_number IS NOT NULL
       AND issue_date IS NOT NULL
+      AND id NOT IN (SELECT id FROM duplicate_laws)
     GROUP BY issue_number, issue_date
     ORDER BY issue_date DESC NULLS LAST
     LIMIT 6

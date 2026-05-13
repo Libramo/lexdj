@@ -281,7 +281,7 @@ export default function ApiDocsPage() {
             className="bg-white border border-black/[0.07] rounded-2xl overflow-hidden"
           >
             {/* Endpoint header */}
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-black/[0.06]">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-black/6">
               <MethodBadge method={ep.method} />
               <code className="text-sm font-mono font-semibold text-[#111]">
                 {ep.path}
@@ -301,7 +301,7 @@ export default function ApiDocsPage() {
                 <div className="border border-black/[0.07] rounded-xl overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-[#FAFAF8] border-b border-black/[0.06]">
+                      <tr className="bg-[#FAFAF8] border-b border-black/6">
                         <th className="text-left px-4 py-2 text-[#888] font-medium">
                           Nom
                         </th>
@@ -320,7 +320,7 @@ export default function ApiDocsPage() {
                       {ep.params.map((p, j) => (
                         <tr
                           key={j}
-                          className="border-b border-black/[0.04] last:border-0"
+                          className="border-b border-black/4 last:border-0"
                         >
                           <td className="px-4 py-2.5 font-mono text-[#1A3A5C] font-medium">
                             {p.name}
@@ -364,14 +364,14 @@ export default function ApiDocsPage() {
 
         {/* Error codes */}
         <div className="bg-white border border-black/[0.07] rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-black/[0.06]">
+          <div className="px-6 py-4 border-b border-black/6">
             <p className="text-sm font-semibold text-[#111]">Codes d'erreur</p>
           </div>
           <div className="px-6 py-5">
             <div className="border border-black/[0.07] rounded-xl overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#FAFAF8] border-b border-black/[0.06]">
+                  <tr className="bg-[#FAFAF8] border-b border-black/6">
                     <th className="text-left px-4 py-2 text-[#888] font-medium">
                       Code
                     </th>
@@ -390,7 +390,7 @@ export default function ApiDocsPage() {
                   ].map((e) => (
                     <tr
                       key={e.code}
-                      className="border-b border-black/[0.04] last:border-0"
+                      className="border-b border-black/4 last:border-0"
                     >
                       <td className="px-4 py-2.5 font-mono font-bold text-[#1A3A5C]">
                         {e.code}
@@ -406,7 +406,7 @@ export default function ApiDocsPage() {
 
         {/* Changelog */}
         <div className="bg-white border border-black/[0.07] rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-black/[0.06]">
+          <div className="px-6 py-4 border-b border-black/6">
             <p className="text-sm font-semibold text-[#111]">Changelog</p>
           </div>
           <div className="px-6 py-5 space-y-4">
@@ -429,7 +429,7 @@ export default function ApiDocsPage() {
                   </span>
                   <p className="text-[11px] text-[#AAA]">{release.date}</p>
                 </div>
-                <div className="flex-1 border-l border-black/[0.06] pl-4">
+                <div className="flex-1 border-l border-black/6 pl-4">
                   <ul className="space-y-1">
                     {release.changes.map((c, i) => (
                       <li
@@ -448,7 +448,7 @@ export default function ApiDocsPage() {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-black/[0.06] pt-8 pb-4">
+        <div className="border-t border-black/6 pt-8 pb-4">
           <p className="text-xs text-[#AAA] leading-relaxed">
             Cette API est fournie gratuitement par{" "}
             <a
@@ -460,10 +460,10 @@ export default function ApiDocsPage() {
             . Les données proviennent du portail officiel du Journal Officiel de
             la République de Djibouti. Pour toute question :{" "}
             <a
-              href="mailto:hello@blyanalytics.com"
+              href="mailto:contact@blyanalytics.com"
               className="text-[#1A3A5C] hover:underline no-underline"
             >
-              hello@blyanalytics.com
+              contact@blyanalytics.com
             </a>
           </p>
         </div>

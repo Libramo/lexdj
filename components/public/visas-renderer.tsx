@@ -2,24 +2,9 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { parseVisas } from "@/lib/utils";
 
 const PREVIEW_COUNT = 4;
-
-function parseVisas(raw: string): string[] {
-  return (
-    raw
-      // French semicolon + clause keywords
-      .replace(
-        /\s*;\s*(?=(Vu\b|VU\b|Sur\b|SUR\b|Considérant|Rappelant|Soulignant|A\s+adopt|Le\s+Conseil))/gi,
-        "\n",
-      )
-      // Inline VU after period or end of sentence
-      .replace(/\.\s+(?=(VU\b|Vu\b))/g, ".\n")
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean)
-  );
-}
 
 export function VisasRenderer({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -36,7 +21,7 @@ export function VisasRenderer({ text }: { text: string }) {
   return (
     <div className="space-y-3">
       {preamble && (
-        <p className="text-xs font-semibold text-[#1A3A5C] uppercase tracking-wider pb-3 border-b border-black/[0.06]">
+        <p className="text-xs font-semibold text-[#1A3A5C] uppercase tracking-wider pb-3 border-b border-black/6">
           {preamble}
         </p>
       )}

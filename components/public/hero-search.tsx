@@ -151,7 +151,7 @@ export function HeroSearch() {
 
       {/* Dropdown */}
       {open && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 bg-white rounded-b-xl shadow-xl border border-black/[0.1] border-t-0 overflow-hidden z-50">
+        <div className="absolute top-full left-0 right-0 bg-white rounded-b-xl shadow-xl border border-black/10 border-t-0 overflow-hidden z-50">
           {suggestions.map((s, i) => (
             <button
               key={s.id}
@@ -163,7 +163,7 @@ export function HeroSearch() {
               onMouseEnter={() => setActiveIndex(i)}
               className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${
                 i === activeIndex ? "bg-[#EEF3F8]" : "hover:bg-[#F8FAFC]"
-              } ${i < suggestions.length - 1 ? "border-b border-black/[0.04]" : ""}`}
+              } ${i < suggestions.length - 1 ? "border-b border-black/4" : ""}`}
             >
               <FileText size={13} className="text-[#AAA] shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
@@ -195,7 +195,7 @@ export function HeroSearch() {
               e.preventDefault();
               handleSubmit();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium text-[#1A3A5C] bg-[#F0F5FA] hover:bg-[#EEF3F8] transition-colors border-t border-black/[0.06]"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium text-[#1A3A5C] bg-[#F0F5FA] hover:bg-[#EEF3F8] transition-colors border-t border-black/6"
           >
             <Search size={11} />
             Rechercher « {q} » dans tous les textes

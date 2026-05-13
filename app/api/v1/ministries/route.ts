@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const conditions: string[] = [
     "issue_number IS NOT NULL",
     "issue_date IS NOT NULL",
+    "id NOT IN (SELECT id FROM duplicate_laws)",
   ];
 
   if (era === "colonial") conditions.push(`issue_date < '1977-06-27'`);
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
           issue_number,
           issue_date,
           COUNT(*)::int AS text_count
-        FROM laws_distinct
+        FROM laws
         ${where}
         GROUP BY issue_number, issue_date
         ORDER BY issue_date DESC NULLS LAST
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
       db.execute(
         sql.raw(`
         SELECT COUNT(DISTINCT issue_number)::int as total
-        FROM laws_distinct
+        FROM laws
         ${where}
       `),
       ),

@@ -78,8 +78,8 @@ export default async function JournalPage({ searchParams }: Props) {
     : "";
   const whereClause =
     eraFilter && eraConditions[eraFilter]
-      ? `WHERE issue_number IS NOT NULL AND ${eraConditions[eraFilter]} ${qCondition}`
-      : `WHERE issue_number IS NOT NULL ${qCondition}`;
+      ? `WHERE issue_number IS NOT NULL AND ${eraConditions[eraFilter]} ${qCondition} AND id NOT IN (SELECT id FROM duplicate_laws)`
+      : `WHERE issue_number IS NOT NULL ${qCondition} AND id NOT IN (SELECT id FROM duplicate_laws)`;
 
   const [issues, totalResult, stats] = await Promise.all([
     db.execute(
@@ -109,6 +109,7 @@ export default async function JournalPage({ searchParams }: Props) {
         COUNT(DISTINCT issue_number)::int as count
       FROM laws
       WHERE issue_number IS NOT NULL AND issue_date IS NOT NULL
+        AND id NOT IN (SELECT id FROM duplicate_laws)
       GROUP BY era
       ORDER BY era
     `),
@@ -316,7 +317,7 @@ export default async function JournalPage({ searchParams }: Props) {
                 )}
 
                 {/* Footer */}
-                <div className="flex items-center justify-between pt-2 border-t border-black/[0.05]">
+                <div className="flex items-center justify-between pt-2 border-t border-black/5">
                   <span className="flex items-center gap-1.5 text-xs text-[#AAA]">
                     <BookOpen size={11} />
                     {n.toLocaleString("fr-FR")} texte{n > 1 ? "s" : ""}
@@ -333,7 +334,7 @@ export default async function JournalPage({ searchParams }: Props) {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-10 pt-6 border-t border-black/[0.06]">
+          <div className="flex items-center justify-between mt-10 pt-6 border-t border-black/6">
             <span className="text-sm text-[#888]">
               Numéros {(page - 1) * PAGE_SIZE + 1}–
               {Math.min(page * PAGE_SIZE, total)} sur{" "}
@@ -343,7 +344,7 @@ export default async function JournalPage({ searchParams }: Props) {
               {page > 1 && (
                 <Link
                   href={pageUrl(page - 1)}
-                  className="px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                  className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
                 >
                   ← Précédent
                 </Link>

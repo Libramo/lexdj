@@ -1,10 +1,10 @@
-import { sql } from "drizzle-orm";
+import { typesenseClient } from "@/lib/typesense";
+import { LAWS_COLLECTION } from "@/lib/typesense-schema";
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { SearchInput } from "@/components/public/search-input";
 import { SearchFilters } from "@/components/public/search-filters";
 import { toTitleCase } from "@/lib/utils";
-import { db } from "@/drizzle/src";
 
 const PAGE_SIZE = 15;
 
@@ -16,31 +16,28 @@ interface Props {
     ministry?: string;
     era?: string;
     sort?: string;
+    topic?: string;
   }>;
 }
 
-// ── Excerpt highlight — renders <<<word>>> markers ────────────────────────────
+// ── Era filter mapping — Typesense filter syntax ──────────────────────────────
+const ERA_FILTERS: Record<string, string> = {
+  colonial: "publication_date:<1977-06-27",
+  independence: "publication_date:>=1977-06-27 && publication_date:<1990-01-01",
+  modern: "publication_date:>=1990-01-01",
+};
+
+// ── Highlight rendering — Typesense wraps matches in <mark> tags ──────────────
 function ExcerptHighlight({ text }: { text: string }) {
-  const parts = text.split(/(<<<[^>]+>>>)/g);
+  // Typesense uses <mark> tags for highlights — render them safely
   return (
-    <span>
-      {parts.map((part, i) =>
-        part.startsWith("<<<") ? (
-          <mark
-            key={i}
-            className="bg-amber-100 text-amber-900 rounded-sm px-0.5 font-medium not-italic"
-          >
-            {part.slice(3, -3)}
-          </mark>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </span>
+    <span
+      dangerouslySetInnerHTML={{ __html: text }}
+      className="[&_mark]:bg-amber-100 [&_mark]:text-amber-900 [&_mark]:rounded-sm [&_mark]:px-0.5 [&_mark]:font-medium"
+    />
   );
 }
 
-// ── Title highlight — simple word-by-word ─────────────────────────────────────
 function TitleHighlight({ text, q }: { text: string; q: string }) {
   if (!q) return <>{text}</>;
   const words = q.trim().split(/\s+/).filter(Boolean);
@@ -66,64 +63,6 @@ function TitleHighlight({ text, q }: { text: string; q: string }) {
   );
 }
 
-async function getFilterOptions(
-  q: string,
-  typeFilter: string,
-  ministryFilter: string,
-  eraFilter: string,
-) {
-  const qSafe = q.replace(/'/g, "''");
-
-  const buildWhere = (exclude: "type" | "ministry" | null) => {
-    const conds: string[] = [];
-    if (q)
-      conds.push(`(
-      to_tsvector('french', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')) @@ plainto_tsquery('french', '${qSafe}')
-      OR to_tsvector('simple', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')) @@ plainto_tsquery('simple', '${qSafe}')
-    )`);
-    if (exclude !== "type" && typeFilter)
-      conds.push(`doc_type = '${typeFilter.replace(/'/g, "''")}'`);
-    if (exclude !== "ministry" && ministryFilter)
-      conds.push(`ministry = '${ministryFilter.replace(/'/g, "''")}'`);
-    if (eraFilter && ERA_CONDITIONS[eraFilter])
-      conds.push(ERA_CONDITIONS[eraFilter]);
-    return conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
-  };
-
-  const [docTypes, ministries] = await Promise.all([
-    db.execute(
-      sql.raw(`
-      SELECT doc_type as value, COUNT(*)::int as count
-      FROM laws_distinct ${buildWhere("type")}
-      GROUP BY doc_type ORDER BY count DESC
-    `),
-    ),
-    db.execute(
-      sql.raw(`
-      SELECT ministry as value, COUNT(*)::int as count
-      FROM laws_distinct ${buildWhere("ministry")}
-      GROUP BY ministry ORDER BY count DESC LIMIT 60
-    `),
-    ),
-  ]);
-
-  return {
-    docTypes: (docTypes.rows as { value: string; count: number }[]).filter(
-      (r) => r.value,
-    ),
-    ministries: (ministries.rows as { value: string; count: number }[]).filter(
-      (r) => r.value,
-    ),
-  };
-}
-
-const ERA_CONDITIONS: Record<string, string> = {
-  colonial: "publication_date < '1977-06-27'",
-  independence:
-    "publication_date >= '1977-06-27' AND publication_date < '1990-01-01'",
-  modern: "publication_date >= '1990-01-01'",
-};
-
 export default async function RecherchePage({ searchParams }: Props) {
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
@@ -132,91 +71,106 @@ export default async function RecherchePage({ searchParams }: Props) {
   const ministryFilter = params.ministry ?? "";
   const eraFilter = params.era ?? "";
   const sort = params.sort ?? "relevance";
+  const topicFilter = params.topic ?? "";
 
-  const hasFilters = !!(typeFilter || ministryFilter || eraFilter);
-  const { docTypes, ministries } = await getFilterOptions(
-    q,
-    typeFilter,
-    ministryFilter,
-    eraFilter,
+  const hasFilters = !!(
+    typeFilter ||
+    ministryFilter ||
+    eraFilter ||
+    topicFilter
   );
 
-  const qSafe = q.replace(/'/g, "''");
+  // ── Build Typesense filter_by ─────────────────────────────────────────────
+  const filters: string[] = [];
+  if (typeFilter) filters.push(`doc_type:=${typeFilter}`);
+  if (ministryFilter) filters.push(`ministry_normalized:=${ministryFilter}`);
+  if (eraFilter && ERA_FILTERS[eraFilter]) filters.push(ERA_FILTERS[eraFilter]);
+  if (topicFilter) filters.push(`topics:=${topicFilter}`);
+  const filterBy = filters.join(" && ");
 
-  // Build WHERE clause
-  const conditions: string[] = [];
-  if (q)
-    conditions.push(`(
-    to_tsvector('french', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')) @@ plainto_tsquery('french', '${qSafe}')
-    OR
-    to_tsvector('simple', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')) @@ plainto_tsquery('simple', '${qSafe}')
-  )`);
-  if (typeFilter)
-    conditions.push(`doc_type = '${typeFilter.replace(/'/g, "''")}'`);
-  if (ministryFilter)
-    conditions.push(`ministry = '${ministryFilter.replace(/'/g, "''")}'`);
-  if (eraFilter && ERA_CONDITIONS[eraFilter])
-    conditions.push(ERA_CONDITIONS[eraFilter]);
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  // Order
-  const orderClause =
+  // ── Sort ──────────────────────────────────────────────────────────────────
+  const sortBy =
     sort === "date_desc"
-      ? "ORDER BY publication_date DESC NULLS LAST"
+      ? "pub_year:desc"
       : sort === "date_asc"
-        ? "ORDER BY publication_date ASC NULLS LAST"
+        ? "pub_year:asc"
         : q
-          ? `ORDER BY (
-        ts_rank(to_tsvector('french', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')), plainto_tsquery('french', '${qSafe}'))
-        +
-        ts_rank(to_tsvector('simple', COALESCE(title,'') || ' ' || COALESCE(intro_text,'') || ' ' || COALESCE(full_text,'')), plainto_tsquery('simple', '${qSafe}'))
-      ) DESC`
-          : "ORDER BY publication_date DESC NULLS LAST";
+          ? "_text_match:desc,pub_year:desc"
+          : "pub_year:desc";
 
-  // Excerpt via ts_headline
-  const excerptExpr = q
-    ? `ts_headline('simple',
-        COALESCE(intro_text,'') || ' ' || COALESCE(full_text,''),
-        plainto_tsquery('simple', '${qSafe}'),
-        'MaxFragments=3, MaxWords=15, MinWords=8, FragmentDelimiter= ‧‧‧ , StartSel=<<<, StopSel=>>>'
-      )`
-    : `intro_text`;
+  // ── Search ────────────────────────────────────────────────────────────────
+  let rows: any[] = [];
+  let total = 0;
+  let totalPages = 0;
+  let docTypes: { value: string; count: number }[] = [];
+  let ministries: { value: string; count: number }[] = [];
 
-  const [results, totalResult] = await Promise.all([
-    q || hasFilters
-      ? db.execute(
-          sql.raw(`
-          SELECT id, title, doc_type, ministry, publication_date,
-                 reference_number, intro_text, issue_number,
-                 ${excerptExpr} as excerpt
-          FROM laws_distinct
-          ${whereClause}
-          ${orderClause}
-          LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
-        `),
-        )
-      : Promise.resolve({ rows: [] }),
-    q || hasFilters
-      ? db.execute(
-          sql.raw(`SELECT COUNT(*) as total FROM laws_distinct ${whereClause}`),
-        )
-      : Promise.resolve({ rows: [{ total: 0 }] }),
-  ]);
+  // Always fetch facets so the filter sidebar is populated even on empty state
+  // per_page=0 means we get facet counts without fetching any documents
+  const facetResult = await typesenseClient
+    .collections(LAWS_COLLECTION)
+    .documents()
+    .search({
+      q: "*",
+      query_by: "title",
+      per_page: 0,
+      facet_by: "doc_type,ministry_normalized",
+      max_facet_values: 60,
+      filter_by: filterBy || undefined,
+    } as any);
 
-  const total = Number((totalResult.rows[0] as any)?.total ?? 0);
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  const rows = results.rows as {
-    id: number;
-    title: string;
-    doc_type: string;
-    ministry: string;
-    publication_date: string;
-    reference_number: string;
-    intro_text: string;
-    issue_number: string;
-    excerpt: string;
-  }[];
+  docTypes =
+    (facetResult as any).facet_counts
+      ?.find((f: any) => f.field_name === "doc_type")
+      ?.counts.map((c: any) => ({ value: c.value, count: c.count })) ?? [];
+
+  ministries =
+    facetResult.facet_counts
+      ?.find((f: any) => f.field_name === "ministry_normalized")
+      ?.counts.map((c: any) => ({ value: c.value, count: c.count })) ?? [];
+
+  // Only fetch results when there is a query or active filter
+  if (q || hasFilters) {
+    const result = await typesenseClient
+      .collections(LAWS_COLLECTION)
+      .documents()
+      .search({
+        q: q || "*",
+        query_by: "title,reference_number,intro_text,full_text",
+        query_by_weights: "4,3,2,1",
+        filter_by: filterBy || undefined,
+        sort_by: sortBy,
+        page,
+        per_page: PAGE_SIZE,
+        num_typos: 1,
+        prefix: false,
+        highlight_fields: "title,intro_text",
+        highlight_start_tag: "<mark>",
+        highlight_end_tag: "</mark>",
+        snippet_threshold: 30,
+        include_fields:
+          "id,title,doc_type,ministry,publication_date,reference_number,issue_number,intro_text",
+      } as any);
+
+    total = (result as any).found;
+    totalPages = Math.ceil(total / PAGE_SIZE);
+
+    rows =
+      (result as any).hits?.map((hit: any) => ({
+        id: parseInt(hit.document.id),
+        title: hit.document.title ?? "",
+        doc_type: hit.document.doc_type ?? null,
+        ministry: hit.document.ministry ?? null,
+        publication_date: hit.document.publication_date ?? null,
+        reference_number: hit.document.reference_number ?? null,
+        issue_number: hit.document.issue_number ?? null,
+        intro_text: hit.document.intro_text ?? null,
+        excerpt:
+          hit.highlights?.find((h: any) => h.field === "intro_text")?.snippet ??
+          hit.document.intro_text?.slice(0, 200) ??
+          "",
+      })) ?? [];
+  }
 
   function pageUrl(p: number) {
     const sp = new URLSearchParams();
@@ -226,13 +180,14 @@ export default async function RecherchePage({ searchParams }: Props) {
     if (ministryFilter) sp.set("ministry", ministryFilter);
     if (eraFilter) sp.set("era", eraFilter);
     if (sort !== "relevance") sp.set("sort", sort);
+    if (topicFilter) sp.set("topic", topicFilter);
     return `/recherche?${sp.toString()}`;
   }
 
   return (
     <div className="min-h-screen bg-[#FAFAF8]">
       {/* ── SEARCH HEADER ── */}
-      <div className="bg-white border-b border-black/[0.06]">
+      <div className="bg-white border-b border-black/6">
         <div className="max-w-4xl mx-auto px-8 py-8">
           <h1 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111] mb-5">
             Recherche plein texte
@@ -258,6 +213,11 @@ export default async function RecherchePage({ searchParams }: Props) {
                     : eraFilter === "independence"
                       ? "1977–1990"
                       : "Période moderne"}
+                </span>
+              )}
+              {topicFilter && (
+                <span className="inline-flex items-center gap-1.5 text-xs bg-[#1A3A5C] text-white rounded-full px-3 py-1">
+                  {topicFilter}
                 </span>
               )}
               <Link
@@ -316,7 +276,7 @@ export default async function RecherchePage({ searchParams }: Props) {
                         className={`px-2.5 py-1 rounded-md transition-colors no-underline ${
                           sort === s.value
                             ? "bg-[#1A3A5C] text-white font-medium"
-                            : "text-[#888] hover:bg-black/[0.05]"
+                            : "text-[#888] hover:bg-black/5"
                         }`}
                       >
                         {s.label}
@@ -329,7 +289,7 @@ export default async function RecherchePage({ searchParams }: Props) {
           </div>
         )}
 
-        {/* ── FILTERS ── */}
+        {/* ── FILTERS — powered by Typesense facets ── */}
         <SearchFilters
           docTypes={docTypes}
           ministries={ministries}
@@ -338,6 +298,7 @@ export default async function RecherchePage({ searchParams }: Props) {
           currentMinistry={ministryFilter}
           currentEra={eraFilter}
           currentSort={sort}
+          currentTopic={topicFilter}
         />
 
         {/* ── EMPTY STATE ── */}
@@ -375,7 +336,7 @@ export default async function RecherchePage({ searchParams }: Props) {
 
         {/* ── NO RESULTS ── */}
         {(q || hasFilters) && rows.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-2xl border border-black/[0.06]">
+          <div className="text-center py-16 bg-white rounded-2xl border border-black/6">
             <p className="text-sm text-[#888] mb-1">
               Aucun texte ne correspond à votre recherche
             </p>
@@ -407,7 +368,7 @@ export default async function RecherchePage({ searchParams }: Props) {
                         </span>
                       )}
                       {law.issue_number && (
-                        <span className="text-[11px] text-[#AAA] bg-black/[0.03] rounded px-2 py-0.5">
+                        <span className="text-[11px] text-[#AAA] bg-black/3 rounded px-2 py-0.5">
                           N° {law.issue_number}
                         </span>
                       )}
@@ -427,7 +388,7 @@ export default async function RecherchePage({ searchParams }: Props) {
                       <TitleHighlight text={law.title ?? "Sans titre"} q={q} />
                     </p>
 
-                    {/* Excerpt with ts_headline highlights */}
+                    {/* Excerpt with Typesense highlights */}
                     {law.excerpt && (
                       <p className="text-xs text-[#888] leading-relaxed line-clamp-3 font-light mb-2">
                         <ExcerptHighlight text={law.excerpt} />
@@ -474,7 +435,7 @@ export default async function RecherchePage({ searchParams }: Props) {
               {page > 1 && (
                 <Link
                   href={pageUrl(page - 1)}
-                  className="px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                  className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
                 >
                   ← Précédent
                 </Link>
@@ -482,7 +443,7 @@ export default async function RecherchePage({ searchParams }: Props) {
               {page < totalPages && (
                 <Link
                   href={pageUrl(page + 1)}
-                  className="px-4 py-2 text-sm border border-black/[0.1] rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                  className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
                 >
                   Suivant →
                 </Link>

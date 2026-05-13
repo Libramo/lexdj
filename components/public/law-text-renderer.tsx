@@ -1,182 +1,4 @@
-import React from "react";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type BlockType =
-  | "article"
-  | "roman_section"
-  | "numbered_item"
-  | "bullet"
-  | "clause"
-  | "preamble_header"
-  | "signature"
-  | "paragraph";
-
-interface Block {
-  type: BlockType;
-  label?: string;
-  content: string;
-}
-
-// ─── Tokenizer ────────────────────────────────────────────────────────────────
-// Single-pass: insert \n markers before known structural tokens
-
-function tokenize(text: string): string[] {
-  return (
-    text
-      // PREAMBULE header
-      .replace(/^(PREAMBULE)\s+/i, "PREAMBULE\n")
-
-      // CHAPITRE marker
-      .replace(/(?=\bCHAPITRE\s+[IVX\d]+)/gi, "\n")
-
-      // Roman section after ": " or ". " — e.g. "suit : I. Des questions" or ". II. Mise"
-      .replace(
-        /(?<=[:.]\s{0,3})(?=[IVX]{1,4}\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-záàâéèêëîïôùûü])/g,
-        "\n",
-      )
-      // Article markers — handles "Article 1er :", "Art. 1er. —", "Art. 2. —"
-      .replace(
-        /(?=\bArt(?:icles?)?\s*\.?\s*(?:[1lI]er|\d+\w*|[IVX]+)\s*[.:—\-])/gi,
-        "\n",
-      )
-
-      // Numbered items glued: ";2. Texte"
-      .replace(/;\s*(?=\d+\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ])/g, "\n")
-
-      // Bullets glued: ";– " or ".– " or ":– " or ", – "
-      .replace(/[;.,:]\s*(?=–\s)/g, "\n")
-
-      // Clause keywords after semicolon (handles French " ;" spacing)
-      .replace(
-        /\s*;\s*(?=(Conscients?|Considérant|Soucieux|Rappelant|Soulignant|Reconnaissant|Profondément|Vu\b|VU\b|Sur\b|SUR\b|Le\s+Conseil|A\s+adopt))/gi,
-        "\n",
-      )
-
-      // Signature
-      .replace(/\s(?=Fait\s+à\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ])/i, "\n")
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean)
-  );
-}
-
-// ─── Classify each token ──────────────────────────────────────────────────────
-
-function classify(token: string): Block[] {
-  const t = token.trim();
-
-  // PRÉAMBULE header — standalone
-  if (/^PREAMBULE$/i.test(t)) {
-    return [{ type: "preamble_header", content: "PRÉAMBULE" }];
-  }
-
-  // Roman section: "I. Title" or "II. Title : body" or "III. Title body"
-  // Title ends at first ":" or at a sentence boundary before body prose
-  const romanMatch = t.match(/^([IVX]{1,4})\.\s+(.+)/);
-  if (romanMatch) {
-    const label = romanMatch[1] + ".";
-    const rest = romanMatch[2].trim();
-
-    // Title ends at: ":", numbered item, bullet, or a capitalized word followed by lowercase prose
-    // Strategy: find first transition from "Title Words" to "body sentence starts here"
-    const stopMatch = rest.match(
-      /(?=\s*[:\s]\s*–)|(?=\s\d+\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ])|(?<=\w)\s+(?=[A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-záàâéèêëîïôùûü]{2,}\s+[a-záàâéèêëîïôùûü])/,
-    );
-    // Cap title at 10 words regardless
-    const rawTitleEnd = stopMatch?.index ?? rest.length;
-    const wordCap = rest.split(/\s+/).slice(0, 10).join(" ").length;
-    const titleEnd = Math.min(rawTitleEnd, wordCap);
-    const title = rest.slice(0, titleEnd).trim();
-    const body = rest
-      .slice(titleEnd)
-      .replace(/^\s*:?\s*/, "")
-      .trim();
-
-    const blocks: Block[] = [{ type: "roman_section", label, content: title }];
-    if (body) {
-      // Body may contain bullets
-      if (/–\s/.test(body)) {
-        blocks.push(...parseBulletsFromText(body));
-      } else {
-        blocks.push({ type: "paragraph", content: body });
-      }
-    }
-    return blocks;
-  }
-
-  // Article: "Article 1er : body"
-  const articleMatch = t.match(
-    /^(Art(?:icles?)?\s*\.?\s*(?:[1lI]er|\d+\w*|[IVX]+))\s*[.:—\-]+\s*(.*)/i,
-  );
-  if (articleMatch) {
-    return [
-      {
-        type: "article",
-        label: articleMatch[1],
-        content: articleMatch[2].trim(),
-      },
-    ];
-  }
-
-  // Numbered item: "1. body"
-  const numMatch = t.match(/^(\d+)\.\s+(.+)/);
-  if (numMatch) {
-    return [
-      {
-        type: "numbered_item",
-        label: numMatch[1] + ".",
-        content: numMatch[2].trim(),
-      },
-    ];
-  }
-
-  // Bullet: "– body"
-  if (/^[–\-]\s+/.test(t)) {
-    return [{ type: "bullet", content: t.replace(/^[–\-]\s+/, "").trim() }];
-  }
-
-  // Clause keyword
-  const clauseMatch = t.match(
-    /^(VU|Vu|SUR|Sur|Conscients?|Considérant|Soucieux|Rappelant|Soulignant|Reconnaissant|Profondément\s+\S+|Le\s+Conseil[^,]*)\s+(.*)/i,
-  );
-
-  if (clauseMatch) {
-    return [
-      {
-        type: "clause",
-        label: clauseMatch[1].trim(),
-        content: clauseMatch[2].trim(),
-      },
-    ];
-  }
-
-  // Signature
-  if (/^Fait\s+à\s+/i.test(t)) {
-    return [{ type: "signature", content: t }];
-  }
-
-  // Default
-  return [{ type: "paragraph", content: t }];
-}
-
-function parseBulletsFromText(text: string): Block[] {
-  return text
-    .split(/(?=–\s)/)
-    .map((s) => s.trim())
-    .filter((s) => s.startsWith("–"))
-    .map((s) => ({
-      type: "bullet" as BlockType,
-      content: s.replace(/^–\s*/, "").trim(),
-    }));
-}
-
-// ─── Main parser ──────────────────────────────────────────────────────────────
-
-function parseText(text: string): Block[] {
-  if (!text?.trim()) return [];
-  return tokenize(text).flatMap(classify);
-}
+import { Block, parseText } from "@/lib/utils";
 
 // ─── Block renderers ──────────────────────────────────────────────────────────
 
@@ -227,7 +49,7 @@ function NumberedItemBlock({ block }: { block: Block }) {
 function BulletBlock({ block }: { block: Block }) {
   return (
     <div className="flex gap-3 py-1 pl-6">
-      <span className="w-1.5 h-1.5 rounded-full bg-[#4A7FA8]/50 shrink-0 mt-[7px]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-[#4A7FA8]/50 shrink-0 mt-1.75" />
       <p className="text-sm leading-relaxed text-[#444] font-light">
         {block.content}
       </p>
@@ -238,7 +60,7 @@ function BulletBlock({ block }: { block: Block }) {
 function ClauseBlock({ block }: { block: Block }) {
   const isVu = block.label?.toUpperCase() === "VU";
   return (
-    <div className="py-2.5 border-b border-black/[0.04] last:border-0">
+    <div className="py-2.5 border-b border-black/4 last:border-0">
       <span
         className={`inline-block text-[10px] font-bold rounded px-2 py-0.5 tracking-wider uppercase mb-1.5 ${
           isVu ? "text-[#4A7FA8] bg-[#EEF3F8]" : "text-[#8B6F47] bg-[#F5EFE6]"
@@ -267,7 +89,7 @@ function PreambleHeaderBlock({ block }: { block: Block }) {
 
 function SignatureBlock({ block }: { block: Block }) {
   return (
-    <div className="flex flex-col items-end gap-1 pt-6 mt-4 border-t border-black/[0.06]">
+    <div className="flex flex-col items-end gap-1 pt-6 mt-4 border-t border-black/6">
       <p className="text-xs text-[#888] italic text-right leading-relaxed whitespace-pre-line">
         {block.content}
       </p>

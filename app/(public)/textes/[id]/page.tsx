@@ -1,4 +1,4 @@
-import { eq, and, not, desc } from "drizzle-orm";
+import { eq, and, not, desc, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,6 +17,7 @@ import { ExpandableText } from "@/components/public/expandable-text";
 import { VisasRenderer } from "@/components/public/visas-renderer";
 import { db } from "@/drizzle/src";
 import { laws } from "@/drizzle/src/db/schema";
+import { parseSignedBy } from "@/lib/utils";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -63,27 +64,6 @@ function formatDate(d: string | null) {
   }
 }
 
-// Splits "Le Président de la République,Chef du GouvernementISMAÏL OMAR GUELLEH"
-// into title lines and name
-function parseSignedBy(raw: string): { titles: string[]; name: string } {
-  // Name is the last all-caps word sequence (uppercase letters, spaces, hyphens, accents)
-  const nameMatch = raw.match(
-    /([A-ZÀÂÉÈÊËÎÏÔÙÛÜÇŒÆ][A-ZÀÂÉÈÊËÎÏÔÙÛÜÇŒÆ\s\-\']+)$/,
-  );
-  if (!nameMatch) return { titles: [], name: raw };
-
-  const name = nameMatch[1].trim();
-  const titlePart = raw.slice(0, raw.lastIndexOf(name)).trim();
-
-  // Split titles on comma or known separators
-  const titles = titlePart
-    .split(/[,;]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  return { titles, name };
-}
-
 function SignedBy({ value }: { value: string }) {
   const { titles, name } = parseSignedBy(value);
   return (
@@ -104,7 +84,16 @@ export default async function LawDetailPage({ params }: Props) {
   const numId = parseInt(id, 10);
   if (isNaN(numId)) notFound();
 
-  const [law] = await db.select().from(laws).where(eq(laws.id, numId)).limit(1);
+  const [law] = await db
+    .select()
+    .from(laws)
+    .where(
+      and(
+        eq(laws.id, numId),
+        sql`${laws.id} NOT IN (SELECT id FROM duplicate_laws)`,
+      ),
+    )
+    .limit(1);
   if (!law) notFound();
 
   const parsedPdfLinks = law.pdf_links ?? [];
@@ -121,7 +110,13 @@ export default async function LawDetailPage({ params }: Props) {
           publication_date: laws.publication_date,
         })
         .from(laws)
-        .where(and(eq(laws.ministry, law.ministry), not(eq(laws.id, numId))))
+        .where(
+          and(
+            eq(laws.ministry, law.ministry),
+            not(eq(laws.id, numId)),
+            sql`${laws.id} NOT IN (SELECT id FROM duplicate_laws)`,
+          ),
+        )
         .orderBy(desc(laws.publication_date))
         .limit(5)
     : [];
@@ -147,19 +142,29 @@ export default async function LawDetailPage({ params }: Props) {
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-[#888] mb-8">
-        <BackButton />
-        <span>/</span>
-        <Link
-          href="/textes"
-          className="hover:text-[#111] transition-colors no-underline"
+      <div className="flex items-center justify-between gap-2 text-sm text-[#888] mb-8">
+        <div className="flex items-center gap-2">
+          <BackButton />
+          <span>/</span>
+          <Link
+            href="/textes"
+            className="hover:text-[#111] transition-colors no-underline"
+          >
+            Textes
+          </Link>
+          <span>/</span>
+          <span className="text-[#111] truncate max-w-xs">
+            {law.reference_number ?? `#${law.id}`}
+          </span>
+        </div>
+        <a
+          href={`/api/pdf/law/${law.id}`}
+          download
+          className="flex items-center gap-2 text-xs font-medium text-[#1A3A5C] bg-[#EEF3F8] border border-[#1A3A5C]/15 rounded-lg px-3 py-2 hover:bg-[#1A3A5C] hover:text-white transition-colors no-underline shrink-0"
         >
-          Textes
-        </Link>
-        <span>/</span>
-        <span className="text-[#111] truncate max-w-xs">
-          {law.reference_number ?? `#${law.id}`}
-        </span>
+          <FileText size={13} />
+          Télécharger PDF
+        </a>
       </div>
 
       {/* Header */}
@@ -176,7 +181,7 @@ export default async function LawDetailPage({ params }: Props) {
             </span>
           )}
           {law.period && (
-            <span className="text-xs text-[#888] bg-black/[0.04] rounded-full px-3 py-1">
+            <span className="text-xs text-[#888] bg-black/4 rounded-full px-3 py-1">
               {law.period}
             </span>
           )}
@@ -233,7 +238,7 @@ export default async function LawDetailPage({ params }: Props) {
           {law.signed_by && (
             <div className="bg-white rounded-xl border border-black/[0.07] p-6">
               <div className="flex flex-col items-end gap-1 pt-2">
-                <div className="w-8 h-px bg-black/[0.15] mb-3" />
+                <div className="w-8 h-px bg-black/15 mb-3" />
                 <SignedBy value={law.signed_by} />
               </div>
             </div>
@@ -281,7 +286,7 @@ export default async function LawDetailPage({ params }: Props) {
                     <p className="text-[11px] text-[#AAA] uppercase tracking-wider">
                       {label}
                     </p>
-                    <p className="text-sm text-[#222] font-medium leading-snug mt-0.5 break-words">
+                    <p className="text-sm text-[#222] font-medium leading-snug mt-0.5 wrap-break-word">
                       {value}
                     </p>
                   </div>
@@ -323,12 +328,12 @@ export default async function LawDetailPage({ params }: Props) {
           {/* Related */}
           {related.length > 0 && (
             <div className="bg-white rounded-xl border border-black/[0.07] overflow-hidden">
-              <div className="px-5 py-4 border-b border-black/[0.05]">
+              <div className="px-5 py-4 border-b border-black/5">
                 <h2 className="text-xs font-medium text-[#888] uppercase tracking-widest">
                   Du même ministère
                 </h2>
               </div>
-              <div className="divide-y divide-black/[0.05]">
+              <div className="divide-y divide-black/5">
                 {related.map((r) => (
                   <Link
                     key={r.id}

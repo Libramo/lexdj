@@ -1,11 +1,11 @@
-import { sql, count } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle, Info, BookOpen } from "lucide-react";
 import { PartialIssuesTable } from "@/components/public/partial-issues-table";
 import { DuplicatesTable } from "@/components/public/duplicates-table";
 
 import { db } from "@/drizzle/src";
-import { laws, scrape_logs } from "@/drizzle/src/db/schema";
+import { scrape_logs } from "@/drizzle/src/db/schema";
 import {
   AnimatedKPI,
   DecadeChart,
@@ -22,72 +22,101 @@ async function getCoverageData() {
     timeline,
     duplicateCount,
   ] = await Promise.all([
-    db
-      .execute(sql`SELECT COUNT(*)::int as total FROM laws_distinct`)
-      .then((r) => Number((r.rows[0] as any).total)),
-
-    db
-      .select({ total: sql<number>`count(*)` })
-      .from(scrape_logs)
-      .where(sql`status = '404' AND level = 'law'`)
-      .then((r) => Number(r[0].total)),
-
-    db.execute(sql`
-        SELECT l.issue_number, l.issue_date,
-          COUNT(l.id)::int AS available,
-          COALESCE(m.missing,0)::int AS missing,
-          ROUND(COUNT(l.id)::numeric / (COUNT(l.id) + COALESCE(m.missing,0)) * 100)::int AS pct_complete
-        FROM laws l
-        LEFT JOIN (
-          SELECT issue_number, COUNT(*)::int AS missing
-          FROM scrape_logs WHERE status = '404' AND level = 'law'
-          GROUP BY issue_number
-        ) m ON m.issue_number = l.issue_number
-        WHERE COALESCE(m.missing,0) > 0
-        GROUP BY l.issue_number, l.issue_date, m.missing
-        ORDER BY m.missing DESC LIMIT 50
-      `),
-
-    db.execute(sql`
-        SELECT title, publication_date::text, issue_number,
-          COUNT(*)::int AS occurrences, MIN(id)::int AS canonical_id
-        FROM laws
-        GROUP BY title, publication_date, issue_number,
-          md5(COALESCE(full_text,'') || COALESCE(intro_text,''))
-        HAVING COUNT(*) > 1
-        ORDER BY COUNT(*) DESC LIMIT 100
-      `),
-
-    db.execute(sql`
-        SELECT FLOOR(EXTRACT(YEAR FROM issue_date::date)/10)*10 AS decade,
-          COUNT(*)::int AS missing_count
-        FROM scrape_logs s
-        JOIN (
-          SELECT DISTINCT issue_number, MIN(issue_date) as issue_date
-          FROM laws
-          WHERE issue_number IS NOT NULL AND issue_date IS NOT NULL
-          GROUP BY issue_number
-        ) l ON l.issue_number = s.issue_number
-        WHERE s.status = '404' AND s.level = 'law' AND l.issue_date IS NOT NULL
-        GROUP BY decade ORDER BY decade
-      `),
-
-    // Publications per year for timeline sparkline — filter valid years only
-    db.execute(sql`
-        SELECT EXTRACT(YEAR FROM publication_date::date)::int AS year,
-          COUNT(*)::int AS count
-        FROM laws
-        WHERE publication_date IS NOT NULL
-          AND EXTRACT(YEAR FROM publication_date::date) BETWEEN 1900 AND 2030
-        GROUP BY year ORDER BY year
-      `),
-
+    // Total laws excluding duplicates
     db
       .execute(
         sql`
-    SELECT (SELECT COUNT(*) FROM laws) - (SELECT COUNT(*) FROM laws_distinct) AS duplicates
-  `,
+        SELECT COUNT(*)::int as total
+        FROM laws
+        WHERE id NOT IN (SELECT id FROM duplicate_laws)
+      `,
       )
+      .then((r) => Number((r.rows[0] as any).total)),
+
+    // Total missing laws from scrape_logs
+    db
+      .execute(
+        sql`
+        SELECT COUNT(*)::int as total
+        FROM scrape_logs
+        WHERE status IN ('404', 'base_url') AND level = 'law'
+      `,
+      )
+      .then((r) => Number((r.rows[0] as any).total)),
+
+    // Issues with partial content — exclude duplicates from law counts
+    db.execute(sql`
+      SELECT l.issue_number, l.issue_date,
+  COUNT(l.id)::int AS available,
+  MAX(COALESCE(m.missing, 0))::int AS missing,
+  ROUND(COUNT(l.id)::numeric / (COUNT(l.id) + MAX(COALESCE(m.missing, 0))) * 100)::int AS pct_complete
+FROM laws l
+LEFT JOIN (
+  SELECT issue_number, COUNT(*)::int AS missing
+  FROM scrape_logs
+  WHERE status IN ('404', 'base_url') AND level = 'law'
+  GROUP BY issue_number
+) m ON m.issue_number = l.issue_number
+WHERE COALESCE(m.missing, 0) > 0
+  AND l.id NOT IN (SELECT id FROM duplicate_laws)
+GROUP BY l.issue_number, l.issue_date
+ORDER BY MAX(COALESCE(m.missing, 0)) DESC
+LIMIT 50
+    `),
+
+    // Duplicates — group by law, count occurrences, link to canonical version
+    // canonical_id is the MIN(id) kept in laws, occurrences = duplicates + 1
+    db.execute(sql`
+      SELECT
+        d.title,
+        d.publication_date::text,
+        d.issue_number,
+        MIN(l.id)::int AS canonical_id,
+        COUNT(*)::int + 1 AS occurrences
+      FROM duplicate_laws d
+      JOIN laws l
+        ON l.title = d.title
+        AND l.issue_number = d.issue_number
+        AND l.id NOT IN (SELECT id FROM duplicate_laws)
+      GROUP BY d.title, d.publication_date, d.issue_number
+      ORDER BY occurrences DESC
+      LIMIT 100
+    `),
+
+    // Missing laws by decade — exclude duplicates from inner laws subquery
+    db.execute(sql`
+      SELECT FLOOR(EXTRACT(YEAR FROM issue_date::date) / 10) * 10 AS decade,
+        COUNT(*)::int AS missing_count
+      FROM scrape_logs s
+      JOIN (
+        SELECT DISTINCT issue_number, MIN(issue_date) AS issue_date
+        FROM laws
+        WHERE issue_number IS NOT NULL
+          AND issue_date IS NOT NULL
+          AND id NOT IN (SELECT id FROM duplicate_laws)
+        GROUP BY issue_number
+      ) l ON l.issue_number = s.issue_number
+      WHERE s.status IN ('404', 'base_url') AND s.level = 'law'
+        AND l.issue_date IS NOT NULL
+      GROUP BY decade
+      ORDER BY decade
+    `),
+
+    // Publications per year — exclude duplicates
+    db.execute(sql`
+      SELECT EXTRACT(YEAR FROM publication_date::date)::int AS year,
+        COUNT(*)::int AS count
+      FROM laws
+      WHERE publication_date IS NOT NULL
+        AND EXTRACT(YEAR FROM publication_date::date) BETWEEN 1900 AND 2030
+        AND id NOT IN (SELECT id FROM duplicate_laws)
+      GROUP BY year
+      ORDER BY year
+    `),
+
+    // Duplicate count — query directly from duplicate_laws table
+    db
+      .execute(sql`SELECT COUNT(*)::int AS duplicates FROM duplicate_laws`)
       .then((r) => Number((r.rows[0] as any).duplicates)),
   ]);
 
@@ -130,7 +159,6 @@ export default async function CoveragePage() {
 
   const totalAttempted = totalLaws + totalMissing;
   const overallPct = Math.round((totalLaws / totalAttempted) * 100);
-  const multiPubCount = duplicates.reduce((s, d) => s + d.occurrences - 1, 0);
 
   return (
     <div className="min-h-screen bg-[#FAFAF8]">
@@ -231,20 +259,12 @@ export default async function CoveragePage() {
           </div>
         </div>
 
-        {/* ── MULTI-PUBLISHED ── */}
+        {/* ── DUPLICATES ── */}
         <div>
           <div className="flex items-start justify-between gap-4 mb-2">
             <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111]">
               Textes en double
             </h2>
-            {/* <a
-              href="/api/duplicates"
-              download
-              className="flex items-center gap-2 text-xs font-medium text-[#1A3A5C] bg-[#EEF3F8] border border-[#1A3A5C]/15 rounded-lg px-3 py-2 hover:bg-[#1A3A5C] hover:text-white transition-colors no-underline shrink-0"
-            >
-              ↓ Télécharger CSV
-            </a> */}
-
             <span className="text-xs text-[#AAA]">
               Rapport (fichier csv) disponible sur demande
             </span>
@@ -270,7 +290,7 @@ export default async function CoveragePage() {
         </div>
 
         {/* ── FOOTER NOTE ── */}
-        <div className="border-t border-black/[0.06] pt-8 pb-4">
+        <div className="border-t border-black/6 pt-8 pb-4">
           <p className="text-xs text-[#AAA] leading-relaxed max-w-2xl">
             Cette page est mise à jour automatiquement à chaque indexation. Les
             données proviennent du portail officiel du Journal Officiel de la

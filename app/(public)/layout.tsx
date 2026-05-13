@@ -1,8 +1,8 @@
 import { Nav } from "@/components/public/nav";
 import { GavelIcon } from "@/components/ui/gavel";
 import { db } from "@/drizzle/src";
-import { lawsDistinct } from "@/drizzle/src/db/schema";
-import { count } from "drizzle-orm";
+import { laws } from "@/drizzle/src/db/schema";
+import { count, sql } from "drizzle-orm";
 import Link from "next/link";
 
 export default async function PublicLayout({
@@ -10,7 +10,11 @@ export default async function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [{ total }] = await db.select({ total: count() }).from(lawsDistinct);
+  const [{ total }] = await db
+    .execute(
+      sql`SELECT COUNT(*)::int as total FROM laws WHERE id NOT IN (SELECT id FROM duplicate_laws)`,
+    )
+    .then((r) => [{ total: Number((r.rows[0] as any).total) }]);
   return (
     <div className="min-h-screen flex flex-col bg-[#FAFAF8]">
       {/* Top bar */}

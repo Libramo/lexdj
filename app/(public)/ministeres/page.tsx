@@ -55,6 +55,7 @@ export default async function MinistreresPage() {
   const rows = await db
     .select({ ministry: laws.ministry, count: count() })
     .from(laws)
+    .where(sql`${laws.id} NOT IN (SELECT id FROM duplicate_laws)`)
     .groupBy(laws.ministry)
     .orderBy(desc(count()));
 
@@ -145,7 +146,7 @@ export default async function MinistreresPage() {
                 className="group relative bg-white rounded-2xl border border-black/[0.07] p-6 hover:shadow-md hover:-translate-y-1 transition-all no-underline overflow-hidden"
               >
                 {/* Background number */}
-                <div className="absolute -right-2 -bottom-4 font-['Libre_Baskerville'] text-[80px] font-bold text-black/[0.03] leading-none select-none">
+                <div className="absolute -right-2 -bottom-4 font-['Libre_Baskerville'] text-[80px] font-bold text-black/3 leading-none select-none">
                   {i + 1}
                 </div>
 
@@ -162,12 +163,12 @@ export default async function MinistreresPage() {
                       </p>
                       <p className="text-xs text-[#AAA]">textes publiés</p>
                     </div>
-                    <p className="text-3xl font-bold text-black/[0.06] tabular-nums">
+                    <p className="text-3xl font-bold text-black/6 tabular-nums">
                       {pct}%
                     </p>
                   </div>
 
-                  <div className="h-1.5 bg-black/[0.05] rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-[#1A3A5C] rounded-full"
                       style={{ width: `${pct}%` }}
@@ -200,7 +201,7 @@ export default async function MinistreresPage() {
               <Link
                 key={i}
                 href={`/ministeres/${slug}`}
-                className="group flex items-center gap-4 bg-white border border-black/[0.06] rounded-xl px-4 py-3.5 hover:border-[#1A3A5C]/20 hover:bg-[#FAFAF8] transition-all no-underline"
+                className="group flex items-center gap-4 bg-white border border-black/6 rounded-xl px-4 py-3.5 hover:border-[#1A3A5C]/20 hover:bg-[#FAFAF8] transition-all no-underline"
               >
                 {/* Rank */}
                 <span className="text-xs text-[#DDD] tabular-nums w-5 shrink-0 text-right font-mono">
@@ -218,7 +219,7 @@ export default async function MinistreresPage() {
                     {toTitleCase(m.ministry ?? "")}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 h-1 bg-black/[0.04] rounded-full overflow-hidden">
+                    <div className="flex-1 h-1 bg-black/4 rounded-full overflow-hidden">
                       <div
                         className={`h-full ${accent.bar} rounded-full opacity-60`}
                         style={{ width: `${pct}%` }}

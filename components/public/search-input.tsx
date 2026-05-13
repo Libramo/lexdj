@@ -37,7 +37,7 @@ export function SearchInput({ initialQ }: { initialQ: string }) {
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="Décret, arrêté, nomination, loi organique..."
           autoFocus
-          className="w-full pl-11 pr-10 py-3.5 text-sm border border-black/[0.12] rounded-l-xl bg-white focus:outline-none focus:border-[#1A3A5C]/50 transition-colors"
+          className="w-full pl-11 pr-10 py-3.5 text-sm border border-black/12 rounded-l-xl bg-white focus:outline-none focus:border-[#1A3A5C]/50 transition-colors"
         />
         {q && (
           <button

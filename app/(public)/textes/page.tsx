@@ -3,8 +3,8 @@ import Link from "next/link";
 import { toTitleCase } from "@/lib/utils";
 import { ArrowRight, FileText, BookOpen, Hash } from "lucide-react";
 import { db } from "@/drizzle/src";
-import { laws, lawsDistinct } from "@/drizzle/src/db/schema";
 import { TextesFilters } from "@/components/public/text-filters";
+import { laws } from "@/drizzle/src/db/schema";
 
 const PAGE_SIZE = 25;
 
@@ -66,11 +66,14 @@ async function getFilterOptions() {
     db
       .select({ value: laws.doc_type })
       .from(laws)
+      .where(sql`id NOT IN (SELECT id FROM duplicate_laws)`)
       .groupBy(laws.doc_type)
       .orderBy(laws.doc_type),
+
     db
       .select({ value: laws.ministry })
       .from(laws)
+      .where(sql`id NOT IN (SELECT id FROM duplicate_laws)`)
       .groupBy(laws.ministry)
       .orderBy(laws.ministry)
       .limit(80),
@@ -90,9 +93,10 @@ export default async function TextesPage({ searchParams }: Props) {
   const eraFilter = params.era ?? "";
 
   const conditions = [
-    q ? ilike(lawsDistinct.title, `%${q}%`) : undefined,
-    typeFilter ? eq(lawsDistinct.doc_type, typeFilter) : undefined,
-    ministryFilter ? eq(lawsDistinct.ministry, ministryFilter) : undefined,
+    sql`${laws.id} NOT IN (SELECT id FROM duplicate_laws)`,
+    q ? ilike(laws.title, `%${q}%`) : undefined,
+    typeFilter ? eq(laws.doc_type, typeFilter) : undefined,
+    ministryFilter ? eq(laws.ministry, ministryFilter) : undefined,
     eraFilter ? ERA_CONDITIONS[eraFilter] : undefined,
   ].filter(Boolean) as Parameters<typeof and>;
 
@@ -103,31 +107,32 @@ export default async function TextesPage({ searchParams }: Props) {
     await Promise.all([
       db
         .select({ total: count() })
-        .from(lawsDistinct)
+        .from(laws)
         .where(where)
         .then((r) => r[0]),
       db
         .select({
-          id: lawsDistinct.id,
-          title: lawsDistinct.title,
-          doc_type: lawsDistinct.doc_type,
-          reference_number: lawsDistinct.reference_number,
-          ministry: lawsDistinct.ministry,
-          publication_date: lawsDistinct.publication_date,
-          mesure: lawsDistinct.mesure,
-          issue_number: lawsDistinct.issue_number,
-          intro_text: lawsDistinct.intro_text,
+          id: laws.id,
+          title: laws.title,
+          doc_type: laws.doc_type,
+          reference_number: laws.reference_number,
+          ministry: laws.ministry,
+          publication_date: laws.publication_date,
+          mesure: laws.mesure,
+          issue_number: laws.issue_number,
+          intro_text: laws.intro_text,
         })
-        .from(lawsDistinct)
+        .from(laws)
         .where(where)
-        .orderBy(desc(lawsDistinct.publication_date))
+        .orderBy(desc(laws.publication_date))
         .limit(PAGE_SIZE)
         .offset((page - 1) * PAGE_SIZE),
       getFilterOptions(),
       db
-        .select({ doc_type: lawsDistinct.doc_type, count: count() })
-        .from(lawsDistinct)
-        .groupBy(lawsDistinct.doc_type)
+        .select({ doc_type: laws.doc_type, count: count() })
+        .from(laws)
+        .where(sql`id NOT IN (SELECT id FROM duplicate_laws)`)
+        .groupBy(laws.doc_type)
         .orderBy(desc(count()))
         .limit(7),
     ]);
@@ -252,7 +257,7 @@ export default async function TextesPage({ searchParams }: Props) {
 
           {/* Empty state */}
           {rows.length === 0 && (
-            <div className="text-center py-20 bg-white rounded-2xl border border-black/[0.06]">
+            <div className="text-center py-20 bg-white rounded-2xl border border-black/6">
               <FileText size={28} className="mx-auto mb-3 text-[#CCC]" />
               <p className="text-sm text-[#888]">Aucun résultat</p>
               {hasFilters && (
@@ -327,7 +332,7 @@ export default async function TextesPage({ searchParams }: Props) {
                         </span>
                       )}
                       {law.ministry && (
-                        <span className="text-[11px] text-[#999] truncate max-w-[200px]">
+                        <span className="text-[11px] text-[#999] truncate max-w-50">
                           {toTitleCase(law.ministry)}
                         </span>
                       )}
@@ -354,7 +359,7 @@ export default async function TextesPage({ searchParams }: Props) {
 
           {/* ── PAGINATION ──────────────────────────────────────────── */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-black/[0.06]">
+            <div className="flex items-center justify-between mt-8 pt-6 border-t border-black/6">
               <span className="text-sm text-[#888]">
                 {((page - 1) * PAGE_SIZE + 1).toLocaleString("fr-FR")}–
                 {Math.min(page * PAGE_SIZE, total).toLocaleString("fr-FR")} sur{" "}
