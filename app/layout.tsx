@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ChatWidgetLoader } from "@/components/chatbot/chat-widget-loader";
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "LexDJ — Archive du Journal Officiel de Djibouti",
