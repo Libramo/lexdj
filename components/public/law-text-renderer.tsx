@@ -105,6 +105,41 @@ function ParagraphBlock({ block }: { block: Block }) {
   );
 }
 
+function TableBlock({ block }: { block: Block }) {
+  if (!block.headers?.length) return null;
+  return (
+    <div className="my-4 overflow-x-auto rounded-lg border border-black/8">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-[#EEF3F8]">
+            {block.headers.map((h, i) => (
+              <th
+                key={i}
+                className="px-4 py-2.5 text-left text-[11px] font-semibold text-[#1A3A5C] uppercase tracking-wider border-b border-black/8"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {block.rows?.map((row, i) => (
+            <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-[#F8FAFB]"}>
+              {row.map((cell, j) => (
+                <td
+                  key={j}
+                  className="px-4 py-2.5 text-[#333] font-light border-b border-black/4 last:border-0"
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function LawTextRenderer({ text }: { text: string }) {
@@ -130,6 +165,8 @@ export function LawTextRenderer({ text }: { text: string }) {
             return <ClauseBlock key={i} block={block} />;
           case "preamble_header":
             return <PreambleHeaderBlock key={i} block={block} />;
+          case "table":
+            return <TableBlock key={i} block={block} />;
           case "signature":
             return <SignatureBlock key={i} block={block} />;
           default:

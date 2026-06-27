@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ChatWidgetLoader } from "@/components/chatbot/chat-widget-loader";
 
 export const metadata: Metadata = {
   title: "LexDJ — Archive du Journal Officiel de Djibouti",
@@ -33,7 +34,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <ChatWidgetLoader />
+      </body>
     </html>
   );
 }

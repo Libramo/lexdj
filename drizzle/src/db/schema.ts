@@ -7,6 +7,7 @@ import {
   index,
   pgView,
   boolean,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // ─── LAWS ────────────────────────────────────────────────────────────────────
@@ -27,12 +28,21 @@ export const laws = pgTable(
     intro_text: text("intro_text"), // Header e.g. LE PRÉSIDENT DE LA RÉPUBLIQUE...
     visas_text: text("visas_text"), // VU references (legal basis)
     full_text: text("full_text"), // All articles, tables converted to text
+    full_text_structured: jsonb("full_text_structured").$type<
+      Array<{
+        type: string;
+        content?: string;
+        headers?: string[];
+        rows?: string[][];
+      }>
+    >(),
     signed_by: text("signed_by"), // Signature block
     pdf_links: text("pdf_links").array(), // Attached PDF URLs
     issue_number: text("issue_number"), // Journal edition number e.g. n° 24
     issue_date: date("issue_date"), // Journal edition date
     source_url: text("source_url"), // Original portal URL — unique identifier
     scraped_at: timestamp("scraped_at"), // When this law was scraped
+    updated_at: timestamp("updated_at"),
     ocr_corrected: boolean("ocr_corrected").default(false), // True if manually OCR-corrected in admin
     topics: text("topics").array().default([]),
   },

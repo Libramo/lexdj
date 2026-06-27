@@ -91,36 +91,49 @@ export type BlockType =
   | "clause"
   | "preamble_header"
   | "signature"
-  | "paragraph";
+  | "paragraph"
+  | "table";
 
 export interface Block {
   type: BlockType;
   label?: string;
   content: string;
+  headers?: string[];
+  rows?: string[][];
 }
 
 // ─── Tokenizer ────────────────────────────────────────────────────────────────
 // Single-pass: insert \n markers before known structural tokens
 
 export function tokenize(text: string): string[] {
+  // extract tables first — replace them with placeholders so other regex don't touch them
+  const tables: string[] = [];
+  const textWithPlaceholders = text.replace(
+    /((?:\|[^\n]+\|\n?)+)/g,
+    (match) => {
+      tables.push(match.trim());
+      return `\n__TABLE_${tables.length - 1}__\n`;
+    },
+  );
   return (
-    text
+    textWithPlaceholders
       // PREAMBULE header
       .replace(/^(PREAMBULE)\s+/i, "PREAMBULE\n")
 
       // CHAPITRE marker
       .replace(/(?=\bCHAPITRE\s+[IVX\d]+)/gi, "\n")
+      .replace(/(?=\bDISPOSITION[S]?\s+[A-Z]{2,})/g, "\n")
 
       // Roman section after ": " or ". " — e.g. "suit : I. Des questions" or ". II. Mise"
       .replace(
         /(?<=[:.]\s{0,3})(?=[IVX]{1,4}\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ][a-záàâéèêëîïôùûü])/g,
         "\n",
       )
-      // Article markers — handles "Article 1er :", "Art. 1er. —", "Art. 2. —"
-      .replace(
-        /(?=\bArt(?:icles?)?\s*\.?\s*(?:[1lI]er|\d+\w*|[IVX]+)\s*[.:—\-])/gi,
-        "\n",
-      )
+      // Article markers — handles "Article 1er :", "Article 2 :"
+      // uses full word "Article" to avoid matching "articles" mid-sentence
+      .replace(/(?=\bArticle\s+(?:[1lI]er|\d+\w*|[IVX]+)\s*[.:—\-])/gi, "\n")
+
+      .replace(/([A-ZÀÂÉÈÊËÎÏÔÙÛÜ]{4,})\s*(?=Article\s)/g, "$1\n")
 
       // Numbered items glued: ";2. Texte"
       .replace(/;\s*(?=\d+\.\s+[A-ZÀÂÉÈÊËÎÏÔÙÛÜ])/g, "\n")
@@ -139,6 +152,11 @@ export function tokenize(text: string): string[] {
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean)
+      // restore table placeholders as their own tokens
+      .map((token) => {
+        const match = token.match(/^__TABLE_(\d+)__$/);
+        return match ? tables[parseInt(match[1])] : token;
+      })
   );
 }
 
@@ -146,6 +164,20 @@ export function tokenize(text: string): string[] {
 
 export function classify(token: string): Block[] {
   const t = token.trim();
+
+  // markdown table
+  if (t.startsWith("|")) {
+    const lines = t.split("\n").filter(Boolean);
+    const dataLines = lines.filter((l) => !/^\|\s*[-:]+[\s|:-]*\|$/.test(l));
+    const parseRow = (line: string) =>
+      line
+        .split("|")
+        .slice(1, -1)
+        .map((c) => c.trim());
+    const headers = dataLines[0] ? parseRow(dataLines[0]) : [];
+    const rows = dataLines.slice(1).map(parseRow);
+    return [{ type: "table", content: t, headers, rows }];
+  }
 
   // PRÉAMBULE header — standalone
   if (/^PREAMBULE$/i.test(t)) {

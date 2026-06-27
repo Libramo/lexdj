@@ -260,6 +260,8 @@ function PdfBlocks({ text }: { text: string }) {
             return <PdfPreambleBlock key={i} block={block} />;
           case "signature":
             return <PdfSignatureBlock key={i} block={block} />;
+          case "table":
+            return <PdfTableBlock key={i} block={block} />;
           default:
             return <PdfParagraphBlock key={i} block={block} />;
         }
@@ -268,6 +270,64 @@ function PdfBlocks({ text }: { text: string }) {
   );
 }
 
+function PdfTableBlock({ block }: { block: Block }) {
+  if (!block.headers?.length) return null;
+  const colWidth = `${Math.floor(100 / block.headers.length)}%`;
+  return (
+    <View style={{ marginVertical: 6, borderWidth: 1, borderColor: "#E5E5E3" }}>
+      {/* header row */}
+      <View style={{ flexDirection: "row", backgroundColor: "#EEF3F8" }}>
+        {block.headers.map((h, i) => (
+          <View
+            key={i}
+            style={{
+              width: colWidth,
+              padding: 4,
+              borderRightWidth: i < block.headers!.length - 1 ? 1 : 0,
+              borderRightColor: "#E5E5E3",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 7,
+                fontFamily: "Helvetica-Bold",
+                color: "#1A3A5C",
+              }}
+            >
+              {h}
+            </Text>
+          </View>
+        ))}
+      </View>
+      {/* data rows */}
+      {block.rows?.map((row, i) => (
+        <View
+          key={i}
+          style={{
+            flexDirection: "row",
+            backgroundColor: i % 2 === 0 ? "#FFFFFF" : "#F8FAFB",
+            borderTopWidth: 1,
+            borderTopColor: "#E5E5E3",
+          }}
+        >
+          {row.map((cell, j) => (
+            <View
+              key={j}
+              style={{
+                width: colWidth,
+                padding: 4,
+                borderRightWidth: j < row.length - 1 ? 1 : 0,
+                borderRightColor: "#E5E5E3",
+              }}
+            >
+              <Text style={{ fontSize: 8, color: "#555555" }}>{cell}</Text>
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(d: string | null): string {
