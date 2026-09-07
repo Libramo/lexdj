@@ -55,72 +55,120 @@ Update this file after every meaningful implementation change.
   wants — see Next Up for the full reasoning and the one real gap
   (Umami is a client-side JS tracker, so it can't see the public
   `/api/v1/*` REST API's traffic at all, only browser page loads).
+- **2026-09-07 follow-up session** (same calendar day, separate sitting):
+  finally executed the VPS-side punch list the prior session couldn't
+  reach from here, and found/fixed several real bugs only visible once
+  production actually had live data for the first time. In order: fixed
+  `/api/v1/ministries`'s copy-paste bug (see Completed); added a
+  Légifrance-inspired **hero search options panel** (field-scope +
+  exact-phrase, corrected mid-session against a real Légifrance
+  screenshot — see Completed → Hero Search); walked the VPS through
+  installing the cron deploy setup for real, hitting and fixing two
+  concrete gaps along the way — a `select-editor`/`crontab -e` detour,
+  crontab lines still containing the literal `/path/to/ejo-djib`
+  placeholder never substituted with the real path
+  (`/var/www/webprojects/lexdj`), and `deploy/logs/` not existing since
+  it's gitignored (now documented as an explicit one-time-setup step in
+  `deploy/README.md`); ran the full Meilisearch reindex, which crashed
+  twice on a real bug (`waitTask()`'s 5s default timeout too short for
+  large batches, see Completed → Meilisearch Indexer Timeout Fix) before
+  finally succeeding completely (53,845/53,845 documents) once that fix
+  was actually deployed — a local `git reset --hard origin/main &&
+  docker compose up -d --build` run on the dev machine by mistake
+  (harmless, Docker Desktop wasn't even running) and a mangled commit
+  message (fixed via amend + force-push) happened along the way but
+  caused no lasting damage; found and fixed a genuine display bug only
+  visible once real search results existed — a doubled "N° n°" prefix
+  across 4 files, since `issue_number` already includes its own "n°"
+  scraped from the source (see Completed); corrected an invented "JO"
+  label to the source-accurate "JORD" (`scraper/parser.ts` strips
+  exactly that literal prefix, confirming it's the real abbreviation);
+  discovered `/codes` and `/cms` have never actually been reachable in
+  production — Payload's migration has never been run there and
+  `PAYLOAD_SECRET` was never even set in the VPS's `.env` (fix given,
+  not yet confirmed executed — see Current Goal); and surveyed the
+  scraped corpus for additional Code-du-travail-style code candidates,
+  finding a clean list of importable ones plus confirming Code Pénal,
+  Code de Procédure Pénale, and Code de la Route have **no** single
+  consolidated foundational law to import from (only scattered colonial-
+  era amendments back to 1948) — see Next Up. **Code Civil (`laws.id =
+  1671`) was chosen as the next code to build, investigation into its
+  `full_text` structure started but not completed — session ended here
+  deliberately, pick up there next.**
 
 ## Current Goal
 
-- Session ending here deliberately (2026-09-07). **Not yet done, pick up
-  next session — all of these require the user's own VPS/DNS/hosting
-  access, none of it can be done from here:**
-  1. **Install the cron-based deploy/scrape setup on the VPS** (see
-     Completed → Cron-Based Deploy and Scrape/Reindex, and
-     `deploy/README.md`): `chmod +x deploy/*.sh`, add the two crontab
-     lines. The first `auto-deploy.sh` run after install will pull this
-     session's commits, rebuild the `nextjs` image, and clean up the
-     orphaned `typesense` container via `--remove-orphans`. Then run
-     `docker compose exec -T nextjs npx tsx scripts/meilisearch-index.ts`
-     **once, manually** (a full reindex, not the delta script) —
-     **the new Meilisearch index has zero documents until this runs**,
-     the swap is code-complete but not yet live. See Completed →
-     Typesense → Meilisearch Swap for the full manual-verification
-     checklist (era filters actually narrowing results now, highlight
-     rendering, facet counts, reference-number tokenization, the
-     chatbot RAG path).
-  2. Once verified, retire the old `typesense_data` Docker volume on the
-     VPS (not auto-deleted just because `docker-compose.yml` no longer
-     references it).
-  3. `.env`'s `DATABASE_URL` is still deliberately pointed at production
-     through the user's own SSH tunnel (`postgresql://liban:liban@localhost:5433/eJO`),
-     and `MEILI_HOST` is still the Docker-network-only value
-     (`http://meilisearch:7700`, not switched to a tunneled `localhost`
-     value) — meaning local Meilisearch testing hasn't actually happened
-     yet from this machine as of session end. Both are the user's own
-     call on when/whether to revert for normal local dev — see Secrets
-     and Environment Management in `security.md`.
-  4. DNS — user said "let the DNS point" (2026-09-07, mid-session)
-     confirming intent for DNS to point at production again, superseding
-     the earlier "pointed away as a mitigation" state — but this is
-     external registrar configuration the assistant cannot see or verify
-     from here; confirm it's actually resolving correctly before
-     considering it done.
-  5. LinkedIn post about the recent changes (Codes feature, GovMark/
-     institutional redesign, nav restructuring, and now the Meilisearch
-     swap + security fixes) — user wants it drafted once everything
-     above is live, not before.
-  6. Untriaged from `security.md`'s Findings Log: the 32 `npm audit`
-     vulnerabilities (4 low/18 moderate/10 high), and no rate limiting on
-     `/api/chat`/`/api/suggest`. Neither is urgent but both are logged as
-     open.
-  7. ~~`/api/v1/ministries` returned the wrong data~~ — **fixed**, see
-     Completed → `/api/v1/ministries` Fix.
-  8. **Next feature to start: visitor/traffic monitoring via Umami**
-     (explicit user request — "I want to begin this feature next
-     session"). Scoped, not built. User already runs Prometheus +
-     Grafana + cAdvisor on the VPS (container resource usage only), and
-     considered instrumenting `proxy.ts` with `prom-client` for HTTP
-     traffic metrics instead — decided against that route in favor of
-     **Umami alone**, since it directly covers what the user actually
-     wants (visitor counts, page views, referrers, real-time visitors)
-     without adding complexity the ask didn't call for. Confirmed
-     limitation to carry into that work, not silently rediscover: Umami
-     is a client-side JS tracker, so it will **never see traffic to the
-     public `/api/v1/*` REST API** (no browser, no JS execution there) —
-     if visibility into API usage is ever wanted, that needs a separate,
-     different mechanism regardless of which analytics tool is chosen.
-     Likely shape of the work next session: add an `umami` service to
-     `docker-compose.yml` (its own Postgres — check whether it can reuse
-     this repo's existing `postgres` service with a separate database, or
-     needs its own container, before assuming either) and a tracking
-     script tag in `app/layout.tsx`.
+- Session ending here deliberately (2026-09-07 follow-up session). **Pick
+  up next session:**
+  1. **Confirm the `PAYLOAD_SECRET` fix was actually applied on the VPS**
+     and re-run the migration:
+     ```
+     docker compose exec -T nextjs printenv PAYLOAD_SECRET   # confirm non-empty
+     docker compose exec -T nextjs npx payload migrate
+     ```
+     Root cause: Payload has never actually run in production before —
+     neither `Dockerfile` nor `docker-compose.yml` runs `npx payload
+     migrate` on deploy, and the VPS's `.env` never had `PAYLOAD_SECRET`
+     set at all (only ever needed locally until now). Once migrated,
+     `/cms` should become reachable (first visit prompts to create the
+     initial admin user — normal Payload first-run behavior) and
+     `/codes` should become reachable but **empty** — see next item.
+  2. Once migrated, import the actual Code du travail content into
+     **production** (it was only ever imported into local `ejo_test`):
+     ```
+     docker compose exec -T nextjs npx payload run scripts/import-code-du-travail.ts
+     ```
+  3. **Build the next code: Code Civil (`laws.id = 1671`, 2018)** — chosen
+     this session from a corpus survey (see Completed → Codes Corpus
+     Survey for the full candidate list and reasoning). Investigation
+     into its `full_text` structure (does it use the same TITRE/CHAPITRE/
+     Section/Article markers as Code du travail, or an added LIVRE level,
+     which `CodeSections`' schema already supports?) was started but not
+     finished — pick up there before writing
+     `scripts/import-code-civil.ts`. Do **not** assume the same regex
+     markers as `scripts/import-code-du-travail.ts` without verifying
+     against the real text first, same discipline as the original import.
+  4. Retire the old `typesense_data` Docker volume on the VPS — now safe
+     to do, since the full reindex succeeded completely this session
+     (53,845/53,845 documents, 0 failed batches) and the delta reindex
+     was also verified working (31/31 documents against a real `--since`
+     window). Not yet actually run:
+     ```
+     docker volume ls | grep typesense
+     docker volume rm <name>
+     ```
+  5. **Manual functional verification checklist — still not exhaustively
+     done**, only incidentally touched while fixing the "N° n°" bug:
+     confirm era filters actually narrow results on `/recherche`/`/api/v1/search`,
+     a `reference_number` containing `/` or `-` still tokenizes correctly,
+     and `/api/chat` still surfaces grounded RAG context. Also worth a
+     real look at this session's own hero-search options panel and the
+     `/api/v1/ministries` fix now that there's real data to test against.
+  6. `.env`'s `DATABASE_URL` is still deliberately pointed at production
+     through the user's own SSH tunnel (confirmed still active and
+     working this session — used to survey the Codes corpus), and
+     `MEILI_HOST` is still the Docker-network-only value. Both remain the
+     user's own call on when/whether to revert for normal local dev.
+  7. DNS — unresolved from before, still needs external registrar
+     confirmation, not something visible from here.
+  8. LinkedIn post — still pending until the above is actually live,
+     per the user's own stated ordering.
+  9. Untriaged from `security.md`'s Findings Log: the 32 `npm audit`
+     vulnerabilities, and no rate limiting on `/api/chat`/`/api/suggest`
+     (the latter was explicitly discussed and deprioritized this session
+     — see Completed → Rate Limiting Discussion — not urgent, not fixed).
+  10. Three other "Numéro JO" labels (`textes/[id]/page.tsx:129`,
+      `duplicates-table.tsx:44`, `law-document-pdf.tsx:632`) were found
+      alongside the JORD fix but left unchanged — user hasn't confirmed
+      whether to rename these to "Numéro JORD" too for consistency.
+  11. `journal/[...issue]/page.tsx`'s H1 (`Numéro du {issue.slice(2)}`)
+      has a pre-existing awkward leading-space/double-"du" phrasing —
+      not broken, just not as clean as it could be; found while fixing
+      the "N° n°" bug next to it, not fixed since it wasn't what was
+      reported.
+  12. **Umami visitor monitoring** — still scoped, not built (see the
+      prior session's note above for the full reasoning and the API-
+      traffic-blind-spot caveat). Not touched this session.
 
 ## Completed
 
@@ -890,13 +938,180 @@ task 63`.
   unhandled timeout there would have silently failed the whole weekly
   cron job.
 - `npx tsc --noEmit` and `npm run build` both pass clean.
-- **Not yet done**: the user needs to re-run
-  `npx tsx scripts/meilisearch-index.ts` on the VPS with this fix pulled
-  in (requires committing/pushing this fix and redeploying first) to
-  actually finish the full reindex — the index currently has a partial
-  ~15000/53845 documents from the aborted run, not zero, but still
-  incomplete. Re-running `meilisearch-index.ts` is safe to do again from
-  scratch since it drops and recreates the index each time.
+- **Resolved**: after fixing an unrelated deploy gap first (crontab still
+  had literal `/path/to/ejo-djib` placeholders never substituted with the
+  real VPS path `/var/www/webprojects/lexdj`, and `deploy/logs/` didn't
+  exist — both fixed, see the Deploy Setup Gap entry below), the VPS was
+  confirmed on `18d00cd` and the full reindex re-run succeeded completely:
+  **53,845/53,845 laws indexed, 0 failed batches, 957.8s total**. The
+  Meilisearch index now has real production data for the first time since
+  the Typesense swap — `/recherche`, `/api/suggest`, `/api/v1/search`,
+  and the chatbot's RAG path are all live rather than returning empty
+  results. `scripts/meilisearch-delta-index.ts --since 2026-08-01` was
+  also run as a real test (not just the full indexer) and passed cleanly:
+  31 laws found, 1 batch, 0 failures, ~1s — confirms the same timeout fix
+  and the delta/upsert path both work correctly against production, not
+  just the full-rebuild path. Next: the manual functional-verification
+  checklist above (era filters, highlighting, tokenization, chatbot RAG,
+  plus this session's own hero-search/ministries additions) is now
+  actually testable for the first time — not yet done.
+
+### Deploy Setup Gap — Missing `deploy/logs/` Directory (2026-09-07, follow-up session)
+
+Found while actually installing the cron setup on the VPS for the first
+time (Current Goal item #1): `tail -f deploy/logs/deploy.log` failed with
+"No such file or directory" — no cron tick had ever successfully logged
+anything. Root cause: `deploy/logs/` is gitignored, so a fresh clone/reset
+never has it; the crontab lines redirect with `>> deploy/logs/....log`,
+and bash needs that directory to already exist to open the file for
+appending — `auto-deploy.sh`'s own `mkdir -p "$LOG_DIR"` runs too late,
+since cron sets up the redirect before the script starts executing at
+all. `deploy/README.md`'s one-time setup steps never mentioned creating
+it. Fixed by adding `mkdir -p deploy/logs` as an explicit one-time setup
+step in `deploy/README.md`, with the reasoning inlined so it's not
+silently dropped again.
+
+### "N° n°" Duplicate Prefix Fix (2026-09-07, follow-up session)
+
+Found by the user immediately after the reindex finally made real
+search results visible for the first time: `/recherche` (and others)
+displayed "N° n° 04 du 05/04/2026" — doubled prefix.
+
+- **Root cause**: `laws.issue_number` (and `issues.issue_number`) is
+  stored as scraped verbatim from journalofficiel.dj, already including
+  its own "n° " prefix (schema comment: `// Journal edition number e.g.
+  n° 24`; API docs example: `"n° 5 du 06/04/2026"`). Four separate
+  display sites additionally prepended their own "N° "/"JO N° " on top
+  of that, producing the double prefix — each written independently
+  without checking whether the underlying value already had one.
+- **Evidence this was a known-but-inconsistent problem, not a total
+  blind spot**: `app/(public)/journal/[...issue]/page.tsx`'s own H1
+  (`Numéro du {issue.slice(2)}`) already manually strips the leading 2
+  characters to work around the exact same issue — just in one spot,
+  awkwardly (leaves a stray leading space, and the label "Numéro du"
+  plus the value's own embedded "du DATE" reads a little redundant) —
+  while three other files plus that same file's own breadcrumb line
+  right above it did not.
+- **Fixed** (dropped the redundant added prefix, since the stored value
+  already reads correctly on its own): `app/(public)/recherche/page.tsx`,
+  `app/(public)/ministeres/[slug]/page.tsx`,
+  `app/(public)/journal/[...issue]/page.tsx`'s breadcrumb. In
+  `app/(public)/textes/[id]/page.tsx` the invented `JO` prefix was kept
+  (not redundant with the value) but then itself corrected to `JORD` —
+  see the next entry.
+- **Found, not fixed** (pre-existing, same file, not what was reported):
+  `journal/[...issue]/page.tsx`'s H1 `Numéro du {issue.slice(2)}` still
+  has the awkward leading-space/double-"du" phrasing described above —
+  works, not broken, just not as clean as it could be. Worth revisiting
+  if the user wants that specific line polished too.
+- Only visible now because the Meilisearch reindex (see above) finally
+  put real documents in front of these components for the first time
+  since the engine swap — this bug likely existed before the swap too,
+  just never observed.
+- `npx tsc --noEmit` and `npm run build` both pass clean.
+
+### "JO" → "JORD" Label Correction (2026-09-07, follow-up session)
+
+Immediately after the "N° n°" fix above, the user flagged that the `JO`
+prefix just written into `app/(public)/textes/[id]/page.tsx` should read
+`JORD`. Confirmed via `scraper/parser.ts:75`
+(`rawTitle.replace("JORD", "").trim()`) that the source site titles every
+issue as `"JORD n° X du DATE"` and the scraper strips exactly that
+literal `"JORD"` prefix when storing `issue_number` — so `JORD`
+("Journal Officiel de la République de Djibouti") is the real,
+source-accurate abbreviation, not an invented one. Fixed that one line.
+Three other spots still say "Numéro JO" (`textes/[id]/page.tsx:129`,
+`components/public/duplicates-table.tsx:44`,
+`components/public/law-document-pdf.tsx:632`) — left unchanged since the
+user only flagged the one instance; see Current Goal for the open
+consistency question. `npx tsc --noEmit` passes clean.
+
+### Production Gap Found: Payload Never Migrated, `/codes`+`/cms` Unreachable (2026-09-07, follow-up session)
+
+The user asked why `/codes` and `/cms` weren't reachable now that the
+rest of the site was working post-reindex. Root-caused, not yet fixed:
+
+- Neither `Dockerfile` (`CMD ["npm", "start"]`, just `next start`) nor
+  `docker-compose.yml` ever runs `npx payload migrate` on deploy.
+  Payload's tables (`users`, `law_corrections`, `codes`, `code_sections`,
+  `payload_*`) have only ever been created via migration against the
+  **local** `ejo_test` database (see Completed → Codes Feature) — they
+  have likely never existed on production's Postgres at all, since
+  Payload has never actually run there before. The rest of the site
+  (built entirely on `laws`/`issues`) works fine because it never
+  touches Payload's tables; `/codes` and `/cms` fail because they do.
+- Attempting `docker compose exec -T nextjs npx payload migrate` on the
+  VPS confirmed this further and surfaced a second, compounding gap:
+  it failed immediately with `Error: missing secret key` — production's
+  `.env` has never had `PAYLOAD_SECRET` set at all, since nothing there
+  had ever needed it before this attempt.
+- **Fix given, not yet confirmed executed** (see Current Goal item #1):
+  add a real `PAYLOAD_SECRET` to the VPS's `.env` (`openssl rand -hex
+  32`, same pattern as `MEILI_MASTER_KEY`'s generation), `docker compose
+  up -d` to pick it up, then re-run `npx payload migrate`. Even once
+  migrated, `/codes` will be reachable but **empty** — the actual Code
+  du travail content was only ever imported into local `ejo_test` (see
+  Current Goal item #2 for the production import step).
+
+### Rate Limiting Discussion: `/api/chat`/`/api/suggest` (2026-09-07, follow-up session)
+
+Revisited the open `security.md` gap (no rate limiting on either
+endpoint) as a candidate unit of work. Two decisions came out of the
+conversation, neither resulting in a code change:
+
+- **`/api/chat` (the chatbot) is on hold entirely** — the user says its
+  answer quality isn't satisfying yet and it'll be reworked later, so
+  polishing/rate-limiting it now would be wasted effort. Left untouched.
+- **`/api/suggest` (homepage autocomplete) was walked through in detail**
+  (what it does, why an unthrottled endpoint is a real but low-severity
+  gap, what would actually change for a normal visitor — effectively
+  nothing, since `hero-search.tsx` already debounces to ~1 request per
+  250ms pause, nowhere near a 60/min limit) but ultimately deprioritized
+  as the lowest-value item on the table that session. Still open in
+  `security.md`'s Findings Log, not fixed.
+- One real design note surfaced if this is revisited later: `proxy.ts`'s
+  existing limiter keys on IP only, not IP+route, so naively adding
+  `/api/suggest` to its matcher would share one 60/min bucket with
+  `/api/v1/*` and `/dashboard/*` — worth giving it a separate budget/
+  prefix rather than reusing the same one, if/when this gets built.
+
+### Codes Corpus Survey (2026-09-07, follow-up session)
+
+The user asked "and all the other codes?" after learning only Code du
+travail exists so far. Queried the scraped `laws` table directly (via
+the SSH-tunneled production `DATABASE_URL`, confirmed still active) for
+titles matching code-law patterns, rather than guessing what's available.
+
+- **Clean, single-law foundations — importable via the same
+  Code-du-travail-style one-off script pattern**: Code Civil (`id 1671`,
+  2018, amended by 1401/1428), Code de Procédure Civile (`id 1672`,
+  2018), Code de Commerce (`id 2929`, 2012, "portant adoption du Code de
+  Commerce de Djibouti," amended by 1876/1673/1225), Code de la Famille
+  (`id 5001`, 2002, amended by 2484), Code Minier (`id 2057`, 2016,
+  supersedes an older `id 5985` from 1994), Code de l'Environnement
+  (`id 3641`, 2009), Code Pétrolier (`id 4379`, 2005), Code des Zones
+  Franches (`id 4583`, 2004), Code des Pêches (`id 4875`, 2002, plus an
+  implementing décret `id 4121`), Code de l'Eau (`id 5826`, 1996, plus
+  implementing décrets 5370/5371/5372), Code de l'Aviation Civile
+  (`id 3041`, 2011, amended by 1008), Code Pénitentiaire (`id 8153`,
+  1980, amended by 7142), Code Numérique (`id 127`, 2025 — very recent),
+  Code de Déontologie des Agents Publics (`id 1636`, 2018). Code de la
+  Nationalité Djiboutienne has two candidates (`id 4522` from 2004 vs.
+  `id 7957` from 1981) — not yet determined whether 2004 is a full
+  re-enactment or just an amendment; needs checking before picking one.
+- **Not cleanly importable — no single consolidated law exists in the
+  corpus**: Code Pénal and Code de Procédure Pénale (Djibouti appears to
+  still operate on the inherited French colonial penal code — the
+  corpus only has ~35 scattered amendment laws going back to **1948**,
+  e.g. "modifiant l'article 247 du Code pénal," never a single
+  Djiboutian "Loi portant Code Pénal"), and Code de la Route (a tangle
+  of colonial-era "Territoire Français des Afars et des Issas"
+  deliberations amending each other, same problem). Building these would
+  mean assembling text from a base that may not even be in the scraped
+  corpus, not a straightforward adaptation of the existing import
+  script — a materially different, harder problem, not attempted.
+- **Code Civil chosen as the next code to build** (user delegated the
+  choice) — see Current Goal item #3 for where this was left off.
 
 ### UI Redesign — Token Migration, `/couverture` + `/api` docs (2026-09-07)
 

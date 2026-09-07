@@ -139,7 +139,7 @@ export default async function IssuePage({ params }: Props) {
           <ArrowLeft size={14} /> Numéros
         </Link>
         <span>/</span>
-        <span className="text-foreground font-medium">N° {issue}</span>
+        <span className="text-foreground font-medium">{issue}</span>
       </div>
 
       {/* Header */}

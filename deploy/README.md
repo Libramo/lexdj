@@ -33,12 +33,26 @@ Both scripts:
 
 ```bash
 cd /path/to/ejo-djib
+mkdir -p deploy/logs
 chmod +x deploy/auto-deploy.sh deploy/scrape-and-reindex.sh
 crontab -e
 ```
 
-Add these two lines (adjust the repo path to match where it's actually
-cloned on the VPS):
+`deploy/logs/` is gitignored (VPS-local runtime output, not source), so a
+fresh clone/reset never has it. The crontab lines below redirect output
+with `>> deploy/logs/....log`, and bash needs that directory to already
+exist to open the file for appending — the scripts' own `mkdir -p`
+internally runs too late to help, since cron sets up the redirect before
+the script starts. Skipping this step means the first cron tick fails
+silently with no log file ever created.
+
+Add these two lines — **`/path/to/ejo-djib` is a literal placeholder,
+not a real path**. Run `pwd` from inside the cloned repo first and
+substitute the actual result (e.g. `/var/www/webprojects/lexdj`) into
+both lines below; copy-pasting the placeholder verbatim has actually
+happened (2026-09-07) and silently breaks both cron jobs with no error
+anywhere obvious — cron just tries to run a script at a path that
+doesn't exist:
 
 ```cron
 */10 * * * * /path/to/ejo-djib/deploy/auto-deploy.sh >> /path/to/ejo-djib/deploy/logs/deploy.log 2>&1

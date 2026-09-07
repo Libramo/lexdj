@@ -38,6 +38,14 @@
   no secrets manager, no encryption of the file itself. Acceptable for a
   single-operator project, would not scale to a team without a real
   secrets manager.
+- **Found 2026-09-07 (follow-up session)**: production's `.env` never
+  had `PAYLOAD_SECRET` set at all — Payload has never actually run in
+  production before, so nothing had needed it until `npx payload
+  migrate` was attempted there for the first time and failed with
+  `Error: missing secret key`. Fix given (generate via `openssl rand
+  -hex 32`, same pattern as `MEILI_MASTER_KEY`), not yet confirmed
+  applied — see `progress-tracker.md`'s Current Goal and the Findings
+  Log below.
 
 ## A03 — Injection (SQL, command, etc.)
 
@@ -170,4 +178,5 @@
 | 2026-09-07 | A03 | `app/api/v1/laws/route.ts`, `app/api/v1/issues/route.ts`, `app/api/v1/ministries/route.ts` built SQL via `sql.raw()` with manual `.replace(/'/g, "''")` escaping instead of real parameterization | Medium | Fixed | Same day, same pass — converted to parameterized `sql` template; see `progress-tracker.md`'s Security → `sql.raw()` Injection Sweep entry |
 | 2026-09-07 | A06 | `npm audit` reports 32 vulnerabilities (4 low / 18 moderate / 10 high) in the dependency tree | Unknown (untriaged) | Open | Not investigated this session — needs a dedicated triage pass |
 | 2026-09-07 | A05 | Local dev `DATABASE_URL` pointed at production through an SSH tunnel, no dev/prod isolation while active | Accepted risk | Open (deliberate, temporary) | Explicit user request to work against real data locally; user owns reverting `.env` to the `ejo_test` line when done — see `progress-tracker.md` Current Goal |
-| 2026-09-07 | A04 | `/api/chat` and `/api/suggest` have no rate limiting, unlike `/api/v1/*` and `/dashboard/*` | Low–Medium | Open | Not fixed — `/api/chat` calls a paid external LLM API per request, so this has a real cost/abuse surface, not just server load |
+| 2026-09-07 | A04 | `/api/chat` and `/api/suggest` have no rate limiting, unlike `/api/v1/*` and `/dashboard/*` | Low–Medium | Open | Not fixed — `/api/chat` calls a paid external LLM API per request, so this has a real cost/abuse surface, not just server load. Revisited and explicitly deprioritized in the 2026-09-07 follow-up session — `/api/chat` is on hold pending a quality rework, `/api/suggest`'s real-world risk is low given client-side debouncing (see `progress-tracker.md`'s Rate Limiting Discussion entry) |
+| 2026-09-07 | A02 | Production's `.env` never had `PAYLOAD_SECRET` set — `npx payload migrate` failed with "missing secret key" on first-ever production attempt | Medium (blocks `/codes`/`/cms` entirely, not a live exposure) | Open | Fix given (generate + add to VPS `.env`, `docker compose up -d`), not yet confirmed applied — see `progress-tracker.md` Current Goal |

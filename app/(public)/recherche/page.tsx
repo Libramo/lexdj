@@ -423,7 +423,7 @@ export default async function RecherchePage({ searchParams }: Props) {
                       )}
                       {law.issue_number && (
                         <span className="text-[11px] text-muted-foreground bg-muted rounded-sm px-2 py-0.5">
-                          N° {law.issue_number}
+                          {law.issue_number}
                         </span>
                       )}
                       {law.publication_date && (

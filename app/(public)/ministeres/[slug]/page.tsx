@@ -208,7 +208,7 @@ export default async function MinistryPage({ params, searchParams }: Props) {
               )}
               {law.issue_number && (
                 <span className="text-[11px] text-muted-foreground">
-                  N° {law.issue_number}
+                  {law.issue_number}
                 </span>
               )}
               <ArrowRight

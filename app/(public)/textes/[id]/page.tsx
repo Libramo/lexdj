@@ -307,7 +307,7 @@ export default async function LawDetailPage({ params }: Props) {
                   Voir tout le numéro
                 </p>
                 <p className="text-sm font-semibold text-primary">
-                  JO N° {law.issue_number}
+                  JORD {law.issue_number}
                 </p>
                 {law.issue_date && (
                   <p className="text-xs text-muted-foreground mt-0.5">

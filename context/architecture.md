@@ -165,10 +165,27 @@
   SSH tunnel needed on the VPS itself.
 - Both scripts use `flock` (no overlapping runs) and log to
   `deploy/logs/` (gitignored, VPS-local only).
-- **Not yet applied**: as of 2026-09-07 these scripts exist in the repo
-  but the crontab entries described in `deploy/README.md` have not
-  necessarily been installed on the VPS yet — don't assume auto-deploy
-  is actually active without checking `crontab -l` there.
+- **Installed and confirmed working** as of the 2026-09-07 follow-up
+  session — both crontab lines are live at the real VPS path
+  (`/var/www/webprojects/lexdj`, not the `deploy/README.md` example's
+  literal `/path/to/ejo-djib` placeholder, which was copy-pasted
+  verbatim the first time and had to be corrected), `deploy/logs/` exists
+  (gitignored, not created by a fresh clone — see `deploy/README.md`'s
+  one-time setup), and a manual `bash deploy/auto-deploy.sh` run
+  confirmed clean execution.
+- **Real gap, not yet closed**: neither this deploy mechanism nor the
+  `Dockerfile`/`docker-compose.yml` ever runs `npx payload migrate`.
+  Payload's tables (`users`, `law_corrections`, `codes`, `code_sections`,
+  `payload_*`) have only ever been created via migration against the
+  **local** `ejo_test` database — production has likely never had them
+  at all, since Payload has never actually run there before (confirmed
+  2026-09-07: `/codes` and `/cms` are unreachable in production, and
+  `npx payload migrate` run manually there failed with a missing
+  `PAYLOAD_SECRET`, since nothing in the VPS's `.env` had ever needed
+  it). Running the migration is currently a manual, undocumented-in-
+  automation step — see `progress-tracker.md`'s Current Goal. Worth
+  adding to `auto-deploy.sh` once this stabilizes, but not done
+  preemptively without confirming the fix works manually first.
 
 ## Invariants
 

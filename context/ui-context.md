@@ -1,12 +1,14 @@
 # UI Context
 
-> **Status: implemented**, last substantially updated 2026-09-05. This
+> **Status: implemented**, last substantially updated 2026-09-07. This
 > describes the current public-site design system, not a future target —
 > the redesign shipped, then was substantially revised mid-flight (see the
 > note at the end of Colors); the Codes feature (2026-09-04–09-05) then
-> extended it to a second content type. Treat this as the live spec: new
-> UI work should match it, and any further change here should be made in
-> the code first, then reflected back into this file.
+> extended it to a second content type; the hero search options panel
+> (2026-09-07) added the site's first toggle-switch pattern (see
+> Component Library). Treat this as the live spec: new UI work should
+> match it, and any further change here should be made in the code
+> first, then reflected back into this file.
 
 ## Reference
 
@@ -179,6 +181,17 @@ it would only lose visual variety, consolidate.
   and homepage sections — deliberately narrower than gouv-dj's `max-w-360`
   (LexDJ is a reading/reference tool, not a sprawling portal). The
   `SiteNav` dropdown's content matches this exactly (see above).
+- **Toggle switch** (`components/public/hero-search.tsx`'s
+  `SearchOptionsPanel`, 2026-09-07) — the site's first, introduced for
+  the "Rechercher l'expression exacte" option. `w-9 h-5 rounded-full`
+  track (`bg-primary` on / `bg-muted` off), `w-4 h-4 rounded-full
+  bg-background` knob offset `top-0.5 left-0.5`, sliding via
+  `translate-x-4` — exact Tailwind numbers chosen so the knob sits
+  flush at both ends of the track with a symmetric 2px inset. `role="switch"`
+  + `aria-checked`. Reuse this exact shape for any future on/off toggle
+  rather than inventing a new one — the `rounded-full` here is a
+  genuine circular control, not a pill CTA, so it's exempt from the
+  "no pill CTAs" rule the same way a status dot or progress-bar fill is.
 - **Codes reading UI** (`components/public/code-toc.tsx`,
   `code-content.tsx`, `code-breadcrumbs.tsx`, `code-node-list.tsx`,
   2026-09-05) — built on this current token system from day one, not
