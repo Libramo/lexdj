@@ -855,6 +855,49 @@ free-text boolean query builder, only facet-attribute filter logic).
 - `npx tsc --noEmit` and `npm run build` both pass clean. Not yet manually
   verified in a running browser (assistant doesn't start the dev server).
 
+### Meilisearch Indexer Timeout Fix (2026-09-07, follow-up session)
+
+The user ran `npx tsx scripts/meilisearch-index.ts` on the VPS for the
+first time (Current Goal item #1) and it crashed at 15000/53845 laws
+with `MeilisearchTaskTimeOutError: timeout of 5000ms has exceeded on
+task 63`.
+
+- **Root cause**: the installed `meilisearch` SDK's `.waitTask()`
+  defaults to a 5-second client-side wait (confirmed directly in
+  `node_modules/meilisearch/src/task.ts`: `defaultWaitOptions?.timeout ??
+  5_000`) — a batch of 250 documents (including full `full_text`, and
+  some laws' text is very large — budget-law tables, lengthy décrets) can
+  genuinely take longer than 5s for Meilisearch to finish indexing on a
+  real (resource-modest) VPS, even though the task keeps running and
+  almost certainly still succeeds server-side. The script had no
+  try/catch around the `waitTask()` call, so this thrown error propagated
+  all the way to `main().catch()` and aborted the entire run instead of
+  being handled like the already-existing "batch failed" branch.
+- **Fix, one place**: `lib/meilisearch.ts`'s shared `meiliClient` now sets
+  `defaultWaitOptions: { timeout: 120_000 }` (2 minutes) — confirmed via
+  `grep -rn "waitTask|waitForTask"` that only
+  `scripts/meilisearch-index.ts` and `scripts/meilisearch-delta-index.ts`
+  ever call `.waitTask()`/`.waitForTask()` anywhere in the repo, so this
+  has zero effect on any public request path (search/suggest/chat never
+  wait on a task, only scripts that write documents do).
+- **Also fixed in both scripts**: wrapped the per-batch
+  `addDocuments(batch).waitTask()` call in try/catch, converting a thrown
+  timeout (or any other error) into the same failed-batch accounting
+  already used for a Meilisearch-*reported* failure — so one slow batch
+  now logs a warning and continues instead of aborting a 53k-document
+  run. Matters doubly for `meilisearch-delta-index.ts`, which
+  `deploy/scrape-and-reindex.sh` runs unattended every week — an
+  unhandled timeout there would have silently failed the whole weekly
+  cron job.
+- `npx tsc --noEmit` and `npm run build` both pass clean.
+- **Not yet done**: the user needs to re-run
+  `npx tsx scripts/meilisearch-index.ts` on the VPS with this fix pulled
+  in (requires committing/pushing this fix and redeploying first) to
+  actually finish the full reindex — the index currently has a partial
+  ~15000/53845 documents from the aborted run, not zero, but still
+  incomplete. Re-running `meilisearch-index.ts` is safe to do again from
+  scratch since it drops and recreates the index each time.
+
 ### UI Redesign — Token Migration, `/couverture` + `/api` docs (2026-09-07)
 
 Sixth and final increment of the "UI redesign remaining scope" backlog

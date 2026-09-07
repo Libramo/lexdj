@@ -67,19 +67,31 @@ async function main() {
   for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
     const batch = allRows.slice(i, i + BATCH_SIZE).map(rowToDocument);
 
-    const finished = await index.addDocuments(batch).waitTask();
-
-    if (finished.status === "succeeded") {
-      indexedBatches += 1;
-      indexedDocs += batch.length;
-      process.stdout.write(
-        `\r  ✓ Indexed ${indexedDocs}/${allRows.length} laws...`,
-      );
-    } else {
+    // See scripts/meilisearch-index.ts for why this is wrapped in try/catch —
+    // waitTask() can throw a timeout error without the task actually having
+    // failed server-side, and this script runs unattended via weekly cron
+    // (deploy/scrape-and-reindex.sh), so one slow batch must not abort the
+    // whole run.
+    try {
+      const finished = await index.addDocuments(batch).waitTask();
+      if (finished.status === "succeeded") {
+        indexedBatches += 1;
+        indexedDocs += batch.length;
+        process.stdout.write(
+          `\r  ✓ Indexed ${indexedDocs}/${allRows.length} laws...`,
+        );
+      } else {
+        failedBatches += 1;
+        failedDocs += batch.length;
+        console.warn(
+          `\n  ⚠ Batch ${Math.floor(i / BATCH_SIZE) + 1} failed: ${JSON.stringify(finished.error)}`,
+        );
+      }
+    } catch (err) {
       failedBatches += 1;
       failedDocs += batch.length;
       console.warn(
-        `\n  ⚠ Batch ${Math.floor(i / BATCH_SIZE) + 1} failed: ${JSON.stringify(finished.error)}`,
+        `\n  ⚠ Batch ${Math.floor(i / BATCH_SIZE) + 1} errored (likely a wait timeout, task may still have succeeded): ${err}`,
       );
     }
   }
