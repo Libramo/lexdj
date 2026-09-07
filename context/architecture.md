@@ -140,6 +140,36 @@
   `WHERE id NOT IN (SELECT id FROM duplicate_laws)`, but are intentionally
   visible in the admin dashboard.
 
+## Deployment
+
+- **No CI/CD** — no GitHub Actions, no webhook, no build pipeline of any
+  kind. Confirmed 2026-09-07 (no `.github/workflows`, no deploy script
+  existed before this). Everything runs on the VPS via Docker Compose,
+  triggered by cron polling `origin/main`, not by push.
+- **`deploy/auto-deploy.sh`** (installed as a VPS crontab entry, not
+  committed as active until the user installs it — see
+  `deploy/README.md`): polls `origin/main` every N minutes (10 by
+  default); on a new commit, `git reset --hard origin/main` (not
+  `pull` — safe against a rewritten/force-pushed history) then
+  `docker compose up -d --build --remove-orphans` (`--build` is
+  required since the `nextjs` service only builds an image if one
+  doesn't already exist; `--remove-orphans` cleans up any service
+  removed from `docker-compose.yml`, e.g. the Typesense → Meilisearch
+  rename), then a basic HTTP health check. No automatic rollback on a
+  failed deploy or failed health check — logged, not self-healing.
+- **`deploy/scrape-and-reindex.sh`** (weekly VPS cron): runs
+  `scraper/main.ts` then `scripts/meilisearch-delta-index.ts --since
+  <8 days ago>`, both via `docker compose exec -T nextjs ...` — i.e.
+  *inside* the already-running container, so they use its correct
+  internal `DATABASE_URL`/`MEILI_HOST` (Docker service-name DNS), no
+  SSH tunnel needed on the VPS itself.
+- Both scripts use `flock` (no overlapping runs) and log to
+  `deploy/logs/` (gitignored, VPS-local only).
+- **Not yet applied**: as of 2026-09-07 these scripts exist in the repo
+  but the crontab entries described in `deploy/README.md` have not
+  necessarily been installed on the VPS yet — don't assume auto-deploy
+  is actually active without checking `crontab -l` there.
+
 ## Invariants
 
 1. Postgres is the sole source of truth; Meilisearch is always a rebuildable

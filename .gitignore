@@ -50,3 +50,6 @@ handoff-ejo-scraper.md
 
 # scraper runtime state (resumable checkpoint, not source)
 /scraper/data/
+
+# cron deploy/scrape script logs (VPS-only runtime output, not source)
+/deploy/logs/

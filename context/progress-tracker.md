@@ -9,49 +9,81 @@ Update this file after every meaningful implementation change.
   redesigned the public site's visual identity (implemented, then
   revised), ported the scraper to TypeScript (installed + bug-fixed +
   verified against a real local DB), and started a Payload CMS editorial
-  layer (step 1 only). A Typesense→Meilisearch swap was scoped but
-  deliberately deferred — see Next Up.
+  layer (step 1 only).
 - The 2026-09-04–09-05 session shipped a second content type end to end:
   broadened LexDJ's public positioning from "archive of the JO" to
   "archive du droit et de la législation," then built **Codes** on top of
   that — Payload schema, a real imported code (Code du travail, 297
   articles), a full public reading experience (`/codes/*`), several
-  rendering-fidelity passes on that same import (embedded list detection,
-  indent, numbered container titles, list/link/heading CSS), a richer
-  `/cms` editor (`FixedToolbarFeature`), and a site-wide full-bleed
-  horizontal-scrollbar fix (`html`/`body` `overflow-x: hidden`, see UI
-  Redesign). See Completed → Codes Feature for the full detail.
+  rendering-fidelity passes on that same import, a richer `/cms` editor,
+  and a site-wide full-bleed horizontal-scrollbar fix. See Completed →
+  Codes Feature for the full detail.
+- The 2026-09-07 session did three more substantial things: **migrated
+  the entire public site's UI to the current token system** (six
+  increments, one page/unit at a time — see Completed → UI Redesign
+  entries), **found and fixed 3 real SQL injection vulnerabilities**
+  during that same work (a full `sql.raw()` sweep, see Completed →
+  Security), and **swapped Typesense for Meilisearch** (see Completed →
+  Typesense → Meilisearch Swap) via a written, user-approved plan. Also
+  added `context/security.md` (an OWASP-Top-10-style tracker, new this
+  session) and a matching generic template at
+  `C:\Users\Liban\Documents\Projects\webProjects\templates\context\security.md`.
+  **All of this is now committed and pushed** to `origin/main` on GitHub
+  (`Libramo/lexdj`) as 4 logical commits (`9c60321`..`9d587b0`) — this
+  had never been committed before (the last real commit, `4fa2f9f`,
+  predates even the Codes feature). One untracked file, `draft.txt`,
+  was deliberately left alone — not created by the assistant, unknown
+  purpose, not committed.
 
 ## Current Goal
 
-- Session ending here deliberately (2026-09-05). Nav IA restructuring is
-  done (see Completed → Nav Restructuring) and the JO catch-up scrape ran
-  successfully against production (see Completed → Scraper — 54,306 →
-  54,337 laws, zero errors). **Not yet done, pick up next session:**
-  1. ~~`.env`'s `DATABASE_URL` is still pointed at production through the
-     SSH tunnel used for the catch-up run~~ — fixed 2026-09-07 (switched
-     to local `ejo_test` on port 5432 first, since the old tunnel was
-     closed), **then deliberately re-pointed at production again same
-     day**, per explicit user request: user wants local dev to see the
-     real 54k+ law corpus rather than `ejo_test`'s 7 rows. `.env`'s
-     `DATABASE_URL` is once more `postgresql://liban:liban@localhost:5433/eJO`
-     through a user-run SSH tunnel (`ssh -L 5433:localhost:5432 <user>@<vps>`,
-     assistant has no VPS SSH access to open this itself). **Standing
-     risk while this is active**: every read/write from `npm run dev` —
-     including any admin-dashboard write path exercised during
-     development — hits real production data, no sandbox. Switch back to
-     the commented-out `ejo_test` line in `.env` for normal local dev once
-     this isn't needed; don't assume future sessions should default to
-     production without re-confirming this is still wanted.
-  2. Typesense is now stale relative to Postgres (31 new laws aren't
-     indexed yet) — decide whether to reindex Typesense as a stopgap or
-     wait for the Meilisearch swap (see Next Up), then actually do one of
-     the two.
-  3. DNS is still pointed away from production (the user's own mitigation
-     while doing this work) — flip it back once satisfied.
-  4. LinkedIn post about the recent changes (Codes feature, GovMark/
-     institutional redesign, nav restructuring) — user wants it drafted
-     once everything above is live, not before.
+- Session ending here deliberately (2026-09-07). **Not yet done, pick up
+  next session — all of these require the user's own VPS/DNS/hosting
+  access, none of it can be done from here:**
+  1. **Install the cron-based deploy/scrape setup on the VPS** (see
+     Completed → Cron-Based Deploy and Scrape/Reindex, and
+     `deploy/README.md`): `chmod +x deploy/*.sh`, add the two crontab
+     lines. The first `auto-deploy.sh` run after install will pull this
+     session's commits, rebuild the `nextjs` image, and clean up the
+     orphaned `typesense` container via `--remove-orphans`. Then run
+     `docker compose exec -T nextjs npx tsx scripts/meilisearch-index.ts`
+     **once, manually** (a full reindex, not the delta script) —
+     **the new Meilisearch index has zero documents until this runs**,
+     the swap is code-complete but not yet live. See Completed →
+     Typesense → Meilisearch Swap for the full manual-verification
+     checklist (era filters actually narrowing results now, highlight
+     rendering, facet counts, reference-number tokenization, the
+     chatbot RAG path).
+  2. Once verified, retire the old `typesense_data` Docker volume on the
+     VPS (not auto-deleted just because `docker-compose.yml` no longer
+     references it).
+  3. `.env`'s `DATABASE_URL` is still deliberately pointed at production
+     through the user's own SSH tunnel (`postgresql://liban:liban@localhost:5433/eJO`),
+     and `MEILI_HOST` is still the Docker-network-only value
+     (`http://meilisearch:7700`, not switched to a tunneled `localhost`
+     value) — meaning local Meilisearch testing hasn't actually happened
+     yet from this machine as of session end. Both are the user's own
+     call on when/whether to revert for normal local dev — see Secrets
+     and Environment Management in `security.md`.
+  4. DNS — user said "let the DNS point" (2026-09-07, mid-session)
+     confirming intent for DNS to point at production again, superseding
+     the earlier "pointed away as a mitigation" state — but this is
+     external registrar configuration the assistant cannot see or verify
+     from here; confirm it's actually resolving correctly before
+     considering it done.
+  5. LinkedIn post about the recent changes (Codes feature, GovMark/
+     institutional redesign, nav restructuring, and now the Meilisearch
+     swap + security fixes) — user wants it drafted once everything
+     above is live, not before.
+  6. Untriaged from `security.md`'s Findings Log: the 32 `npm audit`
+     vulnerabilities (4 low/18 moderate/10 high), and no rate limiting on
+     `/api/chat`/`/api/suggest`. Neither is urgent but both are logged as
+     open.
+  7. `/api/v1/ministries` still returns the wrong data (a leftover
+     copy-paste bug from before this session, found during the SQL
+     injection sweep — returns issue-grouped rows, not ministry-grouped
+     ones, contradicting its own documented `/api` contract). Not fixed
+     yet — straightforward whenever it's prioritized, see Next Up.
 
 ## Completed
 
@@ -187,21 +219,12 @@ Update this file after every meaningful implementation change.
   `false`/`false` — those are for deliberate one-off manual runs only
   (initial historical scrape, local smoke tests), not periodic use.
   `npx tsc --noEmit` passes clean.
-- **Periodic sync — recommended approach, not yet set up**: portal issue
-  dates show JO publishes roughly twice a month (mid-month + end-of-month
-  — n° 07–13 all land on the 14th/15th or 30th/31st). A **weekly** cron
-  comfortably covers that cadence without over-polling. Since
-  `docker-compose.yml`'s `nextjs` service already has the full repo
-  (including `scraper/`) and `tsx` (Dockerfile does a single-stage
-  `npm ci`, no devDependency pruning), nothing new needs deploying to the
-  VPS — a host crontab entry running
-  `docker compose exec -T nextjs npx tsx scraper/main.ts` weekly (using
-  the container's own correct internal `DATABASE_URL`, `postgres:5432`,
-  not a tunnel) is enough. Chain a Typesense/Meilisearch reindex step
-  right after in the same cron job once the search-engine swap (see Next
-  Up) lands, so search doesn't silently drift behind Postgres the same
-  way the scraper itself just did. Not implemented this session — VPS
-  cron configuration is the user's own infrastructure to set up.
+- ~~**Periodic sync — recommended approach, not yet set up**~~ —
+  **script written 2026-09-07**, see Completed → Cron-Based Deploy and
+  Scrape/Reindex below (`deploy/scrape-and-reindex.sh`, weekly, chains
+  the scraper + the now-shipped Meilisearch delta reindex exactly as
+  recommended here). Not yet installed on the VPS crontab — see that
+  entry and `deploy/README.md`.
 
 ### UI Redesign
 
@@ -869,6 +892,58 @@ access from here):
    (the compose file no longer references it, but the volume itself
    isn't auto-deleted).
 
+### Cron-Based Deploy and Scrape/Reindex (2026-09-07)
+
+Prompted by the user asking how VPS deployment actually works — checked
+and confirmed **nothing documented it and nothing automated it**: no
+`.github/workflows`, no deploy script existed anywhere in the repo
+before this. `docker-compose.yml`'s `nextjs` service builds from a local
+`Dockerfile` with no image tag, meaning a plain `docker compose up -d`
+after a `git pull` silently reuses the old image — `--build` is required
+and wasn't documented anywhere either.
+
+Built the most robust option the user asked for: **cron-based polling
+deploy**, not push-triggered CI/CD (no GitHub Actions runner/webhook
+exists or was requested) —
+
+- **`deploy/auto-deploy.sh`**: polls `origin/main` (`git fetch` +
+  compare `rev-parse HEAD` vs `origin/main`) every N minutes via cron;
+  on a new commit, `git reset --hard origin/main` (deliberately not
+  `pull` — safe against a rewritten/force-pushed history, which this
+  repo has already had happen once this session), then
+  `docker compose up -d --build --remove-orphans`, then a `curl`
+  health check against `http://localhost:3000/`. Does nothing (no log
+  spam) when there's nothing new.
+- **`deploy/scrape-and-reindex.sh`**: weekly cron, runs
+  `scraper/main.ts` then `scripts/meilisearch-delta-index.ts --since
+  <8 days ago>` — both via `docker compose exec -T nextjs ...`,
+  i.e. *inside* the already-running container so they use its correct
+  internal `DATABASE_URL`/`MEILI_HOST` (Docker service-name DNS), no
+  SSH tunnel needed on the VPS itself. This is exactly the chained
+  scraper+reindex cron already recommended (but not built) in this
+  file's Scraper section — now actually shipped, not just proposed.
+- Both scripts: `flock`-based locking (no overlapping runs), timestamped
+  logs to `deploy/logs/` (gitignored — VPS-local runtime output, not
+  source), non-zero exit on failure (no auto-rollback — logged, not
+  self-healing; deliberately not built without a real incident to design
+  a rollback strategy against).
+- `deploy/README.md` documents the exact crontab lines, one-time setup
+  (`chmod +x`, `crontab -e`), how to verify it's working, and known
+  limitations stated explicitly (no rollback, no failure notifications,
+  no scraper retry) rather than silently omitted.
+- **Real correctness check performed, not just written and assumed**:
+  both scripts were syntax-checked (`bash -n`) and the actual committed
+  git blob content was inspected byte-for-byte (`git show :path | xxd`)
+  to confirm LF line endings survived Windows' `core.autocrlf`
+  conversion — a CRLF shebang line would break the script with a "bad
+  interpreter" error the moment it ran on the Linux VPS, and this was
+  verified directly rather than assumed safe.
+- Added `.gitignore` entries for `/deploy/logs/` (new) alongside the
+  existing `/scraper/data/` entry from earlier this session.
+- **Not yet installed on the VPS** — see Current Goal. `architecture.md`
+  now has a Deployment section describing this mechanism, closing the
+  documentation gap that prompted this work.
+
 ### Nav Restructuring (2026-09-05)
 
 `components/public/nav.tsx`'s desktop mega-menu (`navItems`) and mobile flat
@@ -1130,18 +1205,20 @@ In no particular order — pick based on what's most valuable next session:
   line 1 of `.env`). A fresh test database `ejo_test` was created there
   via pgAdmin for scraper testing — explicitly *not* restored from any of
   the `.dump` files (user wanted a genuinely fresh scrape, not production
-  data). `.env`'s `DATABASE_URL` currently points at
-  `postgresql://postgres:liban@localhost:5432/ejo_test` — this is a
-  **local-only override** of the repo's own docker-compose-oriented
-  default (`postgres:5432` inside the Compose network with user `liban`)
-  and should not be assumed to match other machines or be committed as
-  the "real" default without checking first.
+  data). `postgresql://postgres:liban@localhost:5432/ejo_test` is the
+  correct value for this — but as of 2026-09-07, `.env`'s `DATABASE_URL`
+  is deliberately NOT this value; it's pointed at production instead
+  (see Current Goal) per explicit user request. Don't assume either
+  value is "the" default without checking `.env` directly — this has
+  flipped back and forth multiple times across sessions already.
 - **Production is self-hosted, not Neon** (clarified by the user
   2026-09-05, corrected into `architecture.md`'s Stack table and Storage
-  Model): production Postgres and Typesense both migrated off their
-  managed-cloud origins (Neon, Typesense Cloud) to a **self-hosted
-  Postgres + Typesense pair running in Docker on the user's own VPS**
-  (`docker-compose.yml`'s `postgres`/`typesense` services). `eJO_backup.dump`/
+  Model): production Postgres migrated off Neon to a **self-hosted
+  Postgres instance running in Docker on the user's own VPS**
+  (`docker-compose.yml`'s `postgres` service) — the search engine
+  alongside it was Typesense, self-hosted the same way, until the
+  2026-09-07 swap to Meilisearch (see Completed → Typesense → Meilisearch
+  Swap; `docker-compose.yml`'s service is now `meilisearch`). `eJO_backup.dump`/
   `jo_backup.dump` and the local `ejo_reference`/`ejo_test` databases are
   all pre-migration or point-in-time exports — none of them reflect
   current production. The assistant has no direct access to the actual
@@ -1158,3 +1235,34 @@ In no particular order — pick based on what's most valuable next session:
   (not affiliated with the Djiboutian government) — relevant context for
   why the GovMark/national-symbol decision in Architecture Decisions was
   worth surfacing explicitly rather than assuming.
+- **First-ever git commit/push of this entire accumulated body of work**
+  (2026-09-07): everything from the 2026-09-01 session onward — the
+  scraper port, Payload CMS, Codes, the UI redesign, and this session's
+  security fixes/Meilisearch swap — had been sitting as uncommitted
+  working-tree changes the whole time. Committed as 4 logical commits
+  (`9c60321` scraper, `2276b72` Payload/Codes, `801bc07` UI redesign +
+  docs, `9d587b0` Meilisearch/security) and pushed to `origin/main`
+  (`Libramo/lexdj` on GitHub). Two files in the working tree got assigned
+  to a commit by their more-recent/dominant concern rather than split by
+  hunk (`app/(public)/journal/page.tsx` → the security commit,
+  `app/(public)/recherche/page.tsx` → the Meilisearch commit) — both
+  files also carry earlier UI-redesign changes that are now bundled into
+  those commits rather than the redesign commit; not incorrect, just
+  worth knowing if `git blame`/`git log -p` on either file looks like it
+  mixes concerns. `scraper/data/checkpoint.json` (scrape-progress runtime
+  state, not source) was caught before committing and added to
+  `.gitignore` instead (`/scraper/data/`). One untracked file,
+  `draft.txt`, was deliberately left alone — not created by the
+  assistant, unknown purpose/content, not committed; ask the user what it
+  is before ever touching it.
+- The dev server and Docker were never started by the assistant this
+  session either (same standing instruction) — the Meilisearch swap was
+  verified via `npx tsc --noEmit`, grep sweeps, and reading the installed
+  SDK's own `.d.ts` files directly (the actual `meilisearch` npm package
+  v0.60 has a notably different task-handling API than older
+  tutorials/docs describe — `addDocuments()`/`createIndex()`/etc. return
+  an `EnqueuedTaskPromise` with a `.waitTask()` method, not a plain task
+  object passed to a separate `client.waitForTask(uid)` call). The actual
+  live functional verification (does search return correct results
+  against real production data) has **not** happened yet — see Current
+  Goal.
