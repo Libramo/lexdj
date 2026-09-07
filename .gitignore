@@ -47,3 +47,6 @@ next-env.d.ts
 
 # handoffs
 handoff-ejo-scraper.md
+
+# scraper runtime state (resumable checkpoint, not source)
+/scraper/data/

@@ -40,7 +40,7 @@ export const laws = pgTable(
     pdf_links: text("pdf_links").array(), // Attached PDF URLs
     issue_number: text("issue_number"), // Journal edition number e.g. n° 24
     issue_date: date("issue_date"), // Journal edition date
-    source_url: text("source_url"), // Original portal URL — unique identifier
+    source_url: text("source_url").unique(), // Original portal URL — unique identifier
     scraped_at: timestamp("scraped_at"), // When this law was scraped
     updated_at: timestamp("updated_at"),
     ocr_corrected: boolean("ocr_corrected").default(false), // True if manually OCR-corrected in admin
@@ -64,7 +64,7 @@ export const issues = pgTable("issues", {
   issue_type: text("issue_type"), // NORMAL or SPECIAL
   issue_date: date("issue_date"), // Date of the journal edition
   publication_date: date("publication_date"), // "Date de Publication" from inside issue page
-  source_url: text("source_url"), // Real URL from portal — used for direct linking
+  source_url: text("source_url").unique(), // Real URL from portal — used for direct linking
   scraped_at: timestamp("scraped_at"), // When this issue was scraped
 });
 
