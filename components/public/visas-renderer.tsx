@@ -21,7 +21,7 @@ export function VisasRenderer({ text }: { text: string }) {
   return (
     <div className="space-y-3">
       {preamble && (
-        <p className="text-xs font-semibold text-[#1A3A5C] uppercase tracking-wider pb-3 border-b border-black/6">
+        <p className="text-xs font-semibold text-primary uppercase tracking-wider pb-3 border-b border-border">
           {preamble}
         </p>
       )}
@@ -36,13 +36,13 @@ export function VisasRenderer({ text }: { text: string }) {
           return (
             <li key={i} className="flex gap-3 text-sm leading-relaxed">
               {label ? (
-                <span className="shrink-0 text-[11px] font-semibold text-[#4A7FA8] bg-[#EEF3F8] rounded px-1.5 py-0.5 h-fit mt-0.5 tracking-wider uppercase">
+                <span className="shrink-0 text-[11px] font-semibold text-primary bg-primary/10 rounded-sm px-1.5 py-0.5 h-fit mt-0.5 tracking-wider uppercase">
                   {label}
                 </span>
               ) : (
-                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-[#4A7FA8]/30 mt-2" />
+                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary/30 mt-2" />
               )}
-              <span className="text-[#444] font-light">{body}</span>
+              <span className="font-serif text-foreground font-light">{body}</span>
             </li>
           );
         })}
@@ -51,7 +51,7 @@ export function VisasRenderer({ text }: { text: string }) {
       {isLong && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1.5 text-xs text-[#1A3A5C] font-medium hover:underline mt-1"
+          className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline mt-1"
         >
           {expanded ? (
             <>

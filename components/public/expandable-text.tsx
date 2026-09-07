@@ -16,13 +16,13 @@ export function ExpandableText({ text, previewLength = 300 }: Props) {
 
   return (
     <div>
-      <p className="text-sm leading-relaxed text-[#555] font-light whitespace-pre-wrap">
+      <p className="text-sm leading-relaxed text-foreground font-light whitespace-pre-wrap">
         {display}
       </p>
       {isLong && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-3 flex items-center gap-1.5 text-xs text-[#1A3A5C] font-medium hover:underline"
+          className="mt-3 flex items-center gap-1.5 text-xs text-primary font-medium hover:underline"
         >
           {expanded ? (
             <>

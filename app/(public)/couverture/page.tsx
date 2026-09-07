@@ -161,19 +161,17 @@ export default async function CoveragePage() {
   const overallPct = Math.round((totalLaws / totalAttempted) * 100);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
+    <div className="min-h-screen bg-background">
       {/* ── HEADER ── */}
-      <div className="bg-[#1A3A5C] text-white">
+      <div className="bg-background border-b border-border">
         <div className="max-w-5xl mx-auto px-8 py-14">
-          <p className="text-white/50 text-xs uppercase tracking-widest font-medium mb-3">
+          <p className="text-muted-foreground text-xs uppercase tracking-widest font-medium mb-3">
             LexDJ · Archive non officielle
           </p>
-          <h1 className="font-['Libre_Baskerville'] text-4xl md:text-5xl font-normal leading-tight mb-4">
-            Couverture
-            <br />
-            <em className="text-[#9DC4E0]">de l'archive</em>
+          <h1 className="font-sans uppercase font-black text-4xl md:text-5xl tracking-tight leading-tight text-foreground mb-4">
+            Couverture <span className="text-muted-foreground">de l'archive</span>
           </h1>
-          <p className="text-white/50 text-sm font-light max-w-lg mb-10">
+          <p className="text-muted-foreground text-sm max-w-lg mb-10">
             Transparence sur l'état de l'indexation — ce qui est disponible, ce
             qui manque, et pourquoi.
           </p>
@@ -181,7 +179,7 @@ export default async function CoveragePage() {
           {/* Timeline sparkline in header */}
           {timeline.length > 0 && (
             <div>
-              <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
+              <p className="text-muted-foreground text-xs uppercase tracking-wider mb-3">
                 Publications par année · 1904–2026
               </p>
               <TimelineSpark data={timeline} />
@@ -213,8 +211,8 @@ export default async function CoveragePage() {
             value={overallPct}
             label="Couverture"
             sublabel="taux de disponibilité"
-            icon={<Info size={14} className="text-[#4A7FA8]" />}
-            color="bg-[#1A3A5C]"
+            icon={<Info size={14} className="text-primary" />}
+            color="bg-primary"
             barPct={overallPct}
           />
           <AnimatedKPI
@@ -227,7 +225,7 @@ export default async function CoveragePage() {
         </div>
 
         {/* ── ALERT ── */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex gap-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-sm px-5 py-4 flex gap-3">
           <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-amber-900 mb-0.5">
@@ -247,14 +245,14 @@ export default async function CoveragePage() {
         {/* ── DECADE CHART ── */}
         <div>
           <div className="flex items-baseline justify-between mb-5">
-            <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111]">
+            <h2 className="font-sans uppercase font-bold text-foreground text-xl tracking-tight">
               Textes manquants par décennie
             </h2>
-            <span className="text-xs text-[#AAA]">
+            <span className="text-xs text-muted-foreground">
               {totalMissing.toLocaleString("fr-FR")} au total
             </span>
           </div>
-          <div className="bg-white border border-black/[0.07] rounded-xl p-6">
+          <div className="bg-background border border-border rounded-sm p-6">
             <DecadeChart data={missingByDecade} />
           </div>
         </div>
@@ -262,14 +260,14 @@ export default async function CoveragePage() {
         {/* ── DUPLICATES ── */}
         <div>
           <div className="flex items-start justify-between gap-4 mb-2">
-            <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111]">
+            <h2 className="font-sans uppercase font-bold text-foreground text-xl tracking-tight">
               Textes en double
             </h2>
-            <span className="text-xs text-[#AAA]">
+            <span className="text-xs text-muted-foreground">
               Rapport (fichier csv) disponible sur demande
             </span>
           </div>
-          <p className="text-sm text-[#888] mb-5 leading-relaxed">
+          <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
             Ces textes ont plusieurs URLs sur le portail officiel pointant vers
             le même contenu — probablement un artefact de pagination du CMS. Ce
             fichier peut être transmis aux gestionnaires du portail officiel.
@@ -279,10 +277,10 @@ export default async function CoveragePage() {
 
         {/* ── PARTIAL ISSUES ── */}
         <div>
-          <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111] mb-2">
+          <h2 className="font-sans uppercase font-bold text-foreground text-xl tracking-tight mb-2">
             Numéros avec contenu partiel
           </h2>
-          <p className="text-sm text-[#888] mb-5 leading-relaxed">
+          <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
             Ces numéros ont été identifiés dans l'index mais certains textes
             individuels retournent une erreur 404 sur le portail officiel.
           </p>
@@ -290,15 +288,15 @@ export default async function CoveragePage() {
         </div>
 
         {/* ── FOOTER NOTE ── */}
-        <div className="border-t border-black/6 pt-8 pb-4">
-          <p className="text-xs text-[#AAA] leading-relaxed max-w-2xl">
+        <div className="border-t border-border pt-8 pb-4">
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
             Cette page est mise à jour automatiquement à chaque indexation. Les
             données proviennent du portail officiel du Journal Officiel de la
             République de Djibouti. Pour signaler une erreur ou un texte
             manquant, consultez les{" "}
             <Link
               href="/textes"
-              className="text-[#1A3A5C] hover:underline no-underline"
+              className="text-primary hover:underline no-underline"
             >
               archives disponibles
             </Link>

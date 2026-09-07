@@ -23,10 +23,10 @@ function TypeFilter({
     <div className="flex flex-col gap-1">
       <button
         onClick={() => onSelect("")}
-        className={`text-left text-sm px-3 py-1.5 rounded-md transition-colors ${
+        className={`text-left text-sm px-3 py-1.5 rounded-sm transition-colors ${
           !currentType
-            ? "bg-[#1A3A5C] text-white font-medium"
-            : "text-[#444] hover:bg-black/4"
+            ? "bg-primary text-primary-foreground font-medium"
+            : "text-foreground hover:bg-muted"
         }`}
       >
         Tous
@@ -35,10 +35,10 @@ function TypeFilter({
         <button
           key={t}
           onClick={() => onSelect(t)}
-          className={`text-left text-sm px-3 py-1.5 rounded-md transition-colors truncate ${
+          className={`text-left text-sm px-3 py-1.5 rounded-sm transition-colors truncate ${
             currentType === t
-              ? "bg-[#1A3A5C] text-white font-medium"
-              : "text-[#444] hover:bg-black/[0.04]"
+              ? "bg-primary text-primary-foreground font-medium"
+              : "text-foreground hover:bg-muted"
           }`}
         >
           {t}
@@ -47,7 +47,7 @@ function TypeFilter({
       {docTypes.length > TYPE_PREVIEW && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-left text-xs text-[#1A3A5C] px-3 py-1 hover:underline"
+          className="text-left text-xs text-primary px-3 py-1 hover:underline"
         >
           {expanded ? "Voir moins ↑" : `+${hiddenCount} autres`}
         </button>
@@ -97,7 +97,7 @@ export function TextesFilters({
         <div className="relative">
           <Search
             size={13}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#AAA]"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <input
             type="text"
@@ -105,13 +105,13 @@ export function TextesFilters({
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && push({ q })}
             placeholder="Titre..."
-            className="pl-8 pr-3 py-1.5 text-sm border border-black/[0.1] rounded-lg bg-white focus:outline-none focus:border-[#1A3A5C]/40 w-48"
+            className="pl-8 pr-3 py-1.5 text-sm border border-border rounded-sm bg-background text-foreground focus:outline-none focus:border-primary/40 w-48"
           />
         </div>
         <select
           value={currentType}
           onChange={(e) => push({ type: e.target.value })}
-          className="text-sm border border-black/[0.1] rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#1A3A5C]/40"
+          className="text-sm border border-border rounded-sm px-3 py-1.5 bg-background text-foreground focus:outline-none focus:border-primary/40"
         >
           <option value="">Tous types</option>
           {docTypes.map((t) => (
@@ -126,7 +126,7 @@ export function TextesFilters({
               setQ("");
               push({ q: "", type: "", ministry: "" });
             }}
-            className="flex items-center gap-1 text-xs text-red-500 hover:underline"
+            className="flex items-center gap-1 text-xs text-destructive hover:underline"
           >
             <X size={11} /> Effacer
           </button>
@@ -139,13 +139,13 @@ export function TextesFilters({
     <div className="space-y-6">
       {/* Search */}
       <div>
-        <label className="text-[11px] font-medium text-[#888] uppercase tracking-wider block mb-2">
+        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-2">
           Recherche
         </label>
         <div className="relative">
           <Search
             size={12}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#AAA]"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <input
             type="text"
@@ -153,12 +153,12 @@ export function TextesFilters({
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && push({ q })}
             placeholder="Titre du texte..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-black/[0.1] rounded-lg bg-white focus:outline-none focus:border-[#1A3A5C]/40 transition-colors"
+            className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-sm bg-background text-foreground focus:outline-none focus:border-primary/40 transition-colors"
           />
           {q && q !== currentQ && (
             <button
               onClick={() => push({ q })}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#1A3A5C] font-medium"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-primary font-medium"
             >
               OK
             </button>
@@ -168,7 +168,7 @@ export function TextesFilters({
 
       {/* Type */}
       <div>
-        <label className="text-[11px] font-medium text-[#888] uppercase tracking-wider block mb-2">
+        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-2">
           Type
         </label>
         <TypeFilter
@@ -180,13 +180,13 @@ export function TextesFilters({
 
       {/* Ministry */}
       <div>
-        <label className="text-[11px] font-medium text-[#888] uppercase tracking-wider block mb-2">
+        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block mb-2">
           Ministère
         </label>
         <select
           value={currentMinistry}
           onChange={(e) => push({ ministry: e.target.value })}
-          className="w-full text-sm border border-black/[0.1] rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#1A3A5C]/40"
+          className="w-full text-sm border border-border rounded-sm px-3 py-2 bg-background text-foreground focus:outline-none focus:border-primary/40"
         >
           <option value="">Tous</option>
           {ministries.map((m) => (
@@ -204,7 +204,7 @@ export function TextesFilters({
             setQ("");
             push({ q: "", type: "", ministry: "" });
           }}
-          className="flex items-center gap-1.5 text-xs text-red-500 hover:underline w-full"
+          className="flex items-center gap-1.5 text-xs text-destructive hover:underline w-full"
         >
           <X size={11} />
           Effacer tous les filtres
@@ -212,7 +212,7 @@ export function TextesFilters({
       )}
 
       {isPending && (
-        <p className="text-xs text-[#AAA] animate-pulse">Chargement...</p>
+        <p className="text-xs text-muted-foreground animate-pulse">Chargement...</p>
       )}
     </div>
   );

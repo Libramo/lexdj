@@ -5,52 +5,6 @@ import { ArrowRight } from "lucide-react";
 import { db } from "@/drizzle/src";
 import { laws } from "@/drizzle/src/db/schema";
 
-// Assign a color accent per ministry based on index
-const ACCENTS = [
-  {
-    bg: "bg-blue-50",
-    border: "border-blue-100",
-    text: "text-blue-700",
-    bar: "bg-blue-400",
-    dot: "bg-blue-500",
-  },
-  {
-    bg: "bg-amber-50",
-    border: "border-amber-100",
-    text: "text-amber-700",
-    bar: "bg-amber-400",
-    dot: "bg-amber-500",
-  },
-  {
-    bg: "bg-emerald-50",
-    border: "border-emerald-100",
-    text: "text-emerald-700",
-    bar: "bg-emerald-400",
-    dot: "bg-emerald-500",
-  },
-  {
-    bg: "bg-rose-50",
-    border: "border-rose-100",
-    text: "text-rose-700",
-    bar: "bg-rose-400",
-    dot: "bg-rose-500",
-  },
-  {
-    bg: "bg-violet-50",
-    border: "border-violet-100",
-    text: "text-violet-700",
-    bar: "bg-violet-400",
-    dot: "bg-violet-500",
-  },
-  {
-    bg: "bg-cyan-50",
-    border: "border-cyan-100",
-    text: "text-cyan-700",
-    bar: "bg-cyan-400",
-    dot: "bg-cyan-500",
-  },
-];
-
 export default async function MinistreresPage() {
   const rows = await db
     .select({ ministry: laws.ministry, count: count() })
@@ -67,37 +21,46 @@ export default async function MinistreresPage() {
   const top3 = ministries.slice(0, 3);
   const rest = ministries.slice(3);
 
+  // Top 3 in the breakdown bar get decreasing primary-tint weight, rather
+  // than a rainbow of hand-picked hues — one semantic color system, per
+  // ui-context.md's Colors section.
+  const TOP3_BAR_COLORS = ["bg-primary", "bg-primary/60", "bg-primary/30"];
+  const TOP3_TEXT_COLORS = [
+    "text-primary",
+    "text-primary/80",
+    "text-muted-foreground",
+  ];
+
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
+    <div className="min-h-screen bg-background">
       {/* ── HEADER ── */}
-      <div className="bg-[#1A3A5C] text-white">
+      <div className="bg-background border-b border-border">
         <div className="max-w-6xl mx-auto px-8 py-14">
-          <p className="text-white/50 text-xs uppercase tracking-widest font-medium mb-3">
+          <p className="text-muted-foreground text-xs uppercase tracking-widest font-medium mb-3">
             Journal Officiel · Djibouti
           </p>
-          <h1 className="font-['Libre_Baskerville'] text-4xl md:text-5xl font-normal leading-tight mb-4">
-            Ministères &<br />
-            <em className="text-[#9DC4E0]">institutions</em>
+          <h1 className="font-sans uppercase font-black text-4xl md:text-5xl tracking-tight leading-tight text-foreground mb-4">
+            Ministères &{" "}
+            <span className="text-muted-foreground">institutions</span>
           </h1>
-          <p className="text-white/50 text-sm font-light max-w-md">
+          <p className="text-muted-foreground text-sm max-w-md">
             {ministries.length} entités · {total.toLocaleString("fr-FR")} textes
             publiés au Journal Officiel
           </p>
 
           {/* Overall bar */}
           <div className="mt-8 max-w-lg">
-            <div className="flex justify-between text-xs text-white/40 mb-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
               <span>Répartition des publications</span>
               <span>{total.toLocaleString("fr-FR")} textes</span>
             </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden flex">
+            <div className="h-2 bg-muted rounded-full overflow-hidden flex">
               {top3.map((m, i) => {
                 const pct = (Number(m.count) / total) * 100;
-                const colors = ["bg-[#9DC4E0]", "bg-[#4A7FA8]", "bg-white/40"];
                 return (
                   <div
                     key={i}
-                    className={`h-full ${colors[i]} transition-all`}
+                    className={`h-full ${TOP3_BAR_COLORS[i]} transition-all`}
                     style={{ width: `${pct}%` }}
                     title={`${toTitleCase(m.ministry ?? "")}: ${Number(m.count).toLocaleString("fr-FR")}`}
                   />
@@ -105,27 +68,20 @@ export default async function MinistreresPage() {
               })}
             </div>
             <div className="flex gap-4 mt-2">
-              {top3.map((m, i) => {
-                const colors = [
-                  "text-[#9DC4E0]",
-                  "text-[#4A7FA8]",
-                  "text-white/40",
-                ];
-                return (
+              {top3.map((m, i) => (
+                <span
+                  key={i}
+                  className={`text-[10px] ${TOP3_TEXT_COLORS[i]} flex items-center gap-1`}
+                >
                   <span
-                    key={i}
-                    className={`text-[10px] ${colors[i]} flex items-center gap-1`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${i === 0 ? "bg-[#9DC4E0]" : i === 1 ? "bg-[#4A7FA8]" : "bg-white/40"}`}
-                    />
-                    {toTitleCase(m.ministry ?? "")
-                      .split(" ")
-                      .slice(0, 3)
-                      .join(" ")}
-                  </span>
-                );
-              })}
+                    className={`w-1.5 h-1.5 rounded-full ${TOP3_BAR_COLORS[i]}`}
+                  />
+                  {toTitleCase(m.ministry ?? "")
+                    .split(" ")
+                    .slice(0, 3)
+                    .join(" ")}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -143,34 +99,34 @@ export default async function MinistreresPage() {
               <Link
                 key={i}
                 href={`/ministeres/${slug}`}
-                className="group relative bg-white rounded-2xl border border-black/[0.07] p-6 hover:shadow-md hover:-translate-y-1 transition-all no-underline overflow-hidden"
+                className="group relative bg-background rounded-sm border border-border p-6 hover:border-primary/40 transition-colors no-underline overflow-hidden"
               >
                 {/* Background number */}
-                <div className="absolute -right-2 -bottom-4 font-['Libre_Baskerville'] text-[80px] font-bold text-black/3 leading-none select-none">
+                <div className="absolute -right-2 -bottom-4 font-serif text-[80px] font-bold text-muted-foreground/10 leading-none select-none">
                   {i + 1}
                 </div>
 
                 <div className="relative">
                   <span className="text-2xl mb-3 block">{medals[i]}</span>
-                  <p className="text-base font-semibold text-[#111] group-hover:text-[#1A3A5C] transition-colors leading-snug mb-4">
+                  <p className="text-base font-semibold text-foreground group-hover:text-primary transition-colors leading-snug mb-4">
                     {toTitleCase(m.ministry ?? "")}
                   </p>
 
                   <div className="flex items-end justify-between mb-2">
                     <div>
-                      <p className="text-2xl font-bold text-[#1A3A5C] tabular-nums">
+                      <p className="text-2xl font-bold text-primary tabular-nums">
                         {n.toLocaleString("fr-FR")}
                       </p>
-                      <p className="text-xs text-[#AAA]">textes publiés</p>
+                      <p className="text-xs text-muted-foreground">textes publiés</p>
                     </div>
-                    <p className="text-3xl font-bold text-black/6 tabular-nums">
+                    <p className="text-3xl font-bold text-muted-foreground/20 tabular-nums">
                       {pct}%
                     </p>
                   </div>
 
-                  <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#1A3A5C] rounded-full"
+                      className="h-full bg-primary rounded-full"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -182,10 +138,10 @@ export default async function MinistreresPage() {
 
         {/* ── REST — compact list ── */}
         <div className="mb-6">
-          <h2 className="font-['Libre_Baskerville'] text-xl font-normal text-[#111] mb-1">
+          <h2 className="font-sans uppercase font-bold text-foreground text-xl tracking-tight mb-1">
             Toutes les entités
           </h2>
-          <p className="text-sm text-[#AAA]">
+          <p className="text-sm text-muted-foreground">
             {rest.length} autres ministères et institutions
           </p>
         </div>
@@ -194,38 +150,35 @@ export default async function MinistreresPage() {
           {rest.map((m, i) => {
             const n = Number(m.count);
             const pct = Math.round((n / max) * 100);
-            const accent = ACCENTS[(i + 3) % ACCENTS.length];
             const slug = encodeURIComponent(m.ministry!);
 
             return (
               <Link
                 key={i}
                 href={`/ministeres/${slug}`}
-                className="group flex items-center gap-4 bg-white border border-black/6 rounded-xl px-4 py-3.5 hover:border-[#1A3A5C]/20 hover:bg-[#FAFAF8] transition-all no-underline"
+                className="group flex items-center gap-4 bg-background border border-border rounded-sm px-4 py-3.5 hover:border-primary/40 hover:bg-muted transition-colors no-underline"
               >
                 {/* Rank */}
-                <span className="text-xs text-[#DDD] tabular-nums w-5 shrink-0 text-right font-mono">
+                <span className="text-xs text-muted-foreground tabular-nums w-5 shrink-0 text-right font-mono">
                   {i + 4}
                 </span>
 
                 {/* Colored dot */}
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${accent.dot}`}
-                />
+                <span className="w-2 h-2 rounded-full shrink-0 bg-primary/50" />
 
                 {/* Name + bar */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#222] group-hover:text-[#1A3A5C] transition-colors truncate">
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
                     {toTitleCase(m.ministry ?? "")}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 h-1 bg-black/4 rounded-full overflow-hidden">
+                    <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
                       <div
-                        className={`h-full ${accent.bar} rounded-full opacity-60`}
+                        className="h-full bg-primary/40 rounded-full"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-[11px] text-[#BBB] tabular-nums shrink-0 w-16 text-right">
+                    <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-16 text-right">
                       {n.toLocaleString("fr-FR")}
                     </span>
                   </div>
@@ -233,7 +186,7 @@ export default async function MinistreresPage() {
 
                 <ArrowRight
                   size={12}
-                  className="text-[#DDD] group-hover:text-[#1A3A5C] group-hover:translate-x-0.5 transition-all shrink-0"
+                  className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0"
                 />
               </Link>
             );

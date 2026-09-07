@@ -11,14 +11,13 @@ interface Suggestion {
   publication_date: string | null;
 }
 
+// Loi (the most common/consequential type) is called out with the brand
+// tint; every other type shares one neutral tone rather than a rainbow of
+// pastel hues — see ui-context.md's note on desaturating this set further.
 const DOC_TYPE_COLORS: Record<string, string> = {
-  Loi: "bg-blue-50 text-blue-700",
-  Décret: "bg-violet-50 text-violet-700",
-  Arrêté: "bg-amber-50 text-amber-700",
-  Ordonnance: "bg-rose-50 text-rose-700",
-  Circulaire: "bg-cyan-50 text-cyan-700",
-  Décision: "bg-orange-50 text-orange-700",
+  Loi: "bg-primary/10 text-primary",
 };
+const DEFAULT_DOC_TYPE_COLOR = "bg-muted text-muted-foreground";
 
 export function HeroSearch() {
   const router = useRouter();
@@ -105,22 +104,22 @@ export function HeroSearch() {
   }, []);
 
   const badgeStyle = (type: string | null) =>
-    DOC_TYPE_COLORS[type ?? ""] ?? "bg-[#EEF3F8] text-[#1A3A5C]";
+    DOC_TYPE_COLORS[type ?? ""] ?? DEFAULT_DOC_TYPE_COLOR;
 
   return (
-    <div ref={containerRef} className="relative max-w-2xl w-full">
-      {/* Input */}
+    <div ref={containerRef} className="relative max-w-4xl w-full">
+      {/* Input — solid, high-contrast surface instead of translucent glass */}
       <div className="flex gap-0">
         <div className="relative flex-1">
           {loading ? (
             <Loader2
               size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 animate-spin"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin"
             />
           ) : (
             <Search
               size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
             />
           )}
           <input
@@ -134,16 +133,16 @@ export function HeroSearch() {
             }
             placeholder="Rechercher un décret, arrêté, nomination..."
             autoComplete="off"
-            className={`w-full bg-white/10 border text-white placeholder:text-white/40 text-sm pl-11 pr-4 py-4 focus:outline-none focus:bg-white/15 transition-all ${
+            className={`w-full bg-background border text-foreground placeholder:text-muted-foreground text-sm pl-11 pr-4 py-4 focus:outline-none transition-colors ${
               open
-                ? "rounded-tl-xl border-white/30 border-b-white/10 bg-white/15"
-                : "rounded-l-xl border-white/20 focus:border-white/40"
+                ? "rounded-tl-sm border-border border-b-transparent"
+                : "rounded-l-sm border-border focus:border-primary/40"
             }`}
           />
         </div>
         <button
           onClick={() => handleSubmit()}
-          className="bg-white text-[#1A3A5C] text-sm font-semibold px-7 rounded-r-xl hover:bg-[#EEF3F8] transition-colors shrink-0"
+          className="bg-primary text-primary-foreground text-sm font-semibold px-7 rounded-r-sm hover:bg-primary/90 transition-colors shrink-0"
         >
           Rechercher
         </button>
@@ -151,7 +150,7 @@ export function HeroSearch() {
 
       {/* Dropdown */}
       {open && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 bg-white rounded-b-xl shadow-xl border border-black/10 border-t-0 overflow-hidden z-50">
+        <div className="absolute top-full left-0 right-0 bg-background rounded-b-sm border border-border border-t-0 overflow-hidden z-50">
           {suggestions.map((s, i) => (
             <button
               key={s.id}
@@ -162,30 +161,36 @@ export function HeroSearch() {
               }}
               onMouseEnter={() => setActiveIndex(i)}
               className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${
-                i === activeIndex ? "bg-[#EEF3F8]" : "hover:bg-[#F8FAFC]"
-              } ${i < suggestions.length - 1 ? "border-b border-black/4" : ""}`}
+                i === activeIndex ? "bg-muted" : "hover:bg-muted"
+              } ${i < suggestions.length - 1 ? "border-b border-border" : ""}`}
             >
-              <FileText size={13} className="text-[#AAA] shrink-0 mt-0.5" />
+              <FileText
+                size={13}
+                className="text-muted-foreground shrink-0 mt-0.5"
+              />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-[#111] leading-snug line-clamp-1">
+                <p className="text-sm text-foreground leading-snug line-clamp-1">
                   {s.title}
                 </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   {s.doc_type && (
                     <span
-                      className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${badgeStyle(s.doc_type)}`}
+                      className={`text-[10px] font-medium rounded-sm px-1.5 py-0.5 ${badgeStyle(s.doc_type)}`}
                     >
                       {s.doc_type}
                     </span>
                   )}
                   {s.publication_date && (
-                    <span className="text-[11px] text-[#BBB] tabular-nums">
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
                       {s.publication_date}
                     </span>
                   )}
                 </div>
               </div>
-              <ArrowRight size={12} className="text-[#CCC] shrink-0 mt-1" />
+              <ArrowRight
+                size={12}
+                className="text-muted-foreground shrink-0 mt-1"
+              />
             </button>
           ))}
 
@@ -195,7 +200,7 @@ export function HeroSearch() {
               e.preventDefault();
               handleSubmit();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium text-[#1A3A5C] bg-[#F0F5FA] hover:bg-[#EEF3F8] transition-colors border-t border-black/6"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 transition-colors border-t border-border"
           >
             <Search size={11} />
             Rechercher « {q} » dans tous les textes

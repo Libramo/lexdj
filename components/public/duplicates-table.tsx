@@ -34,45 +34,45 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
   const totalExtra = duplicates.reduce((s, d) => s + d.occurrences - 1, 0);
 
   return (
-    <div className="bg-white border border-black/[0.07] rounded-xl overflow-hidden">
+    <div className="bg-background border border-border rounded-sm overflow-hidden">
       {/* Desktop header */}
-      <div className="hidden md:grid grid-cols-[1fr_140px_80px] gap-4 px-5 py-3 bg-black/2 border-b border-black/6">
-        <span className="text-[11px] font-semibold text-[#888] uppercase tracking-wider">
+      <div className="hidden md:grid grid-cols-[1fr_140px_80px] gap-4 px-5 py-3 bg-muted border-b border-border">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
           Titre
         </span>
-        <span className="text-[11px] font-semibold text-[#888] uppercase tracking-wider">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
           Numéro JO
         </span>
-        <span className="text-[11px] font-semibold text-[#888] uppercase tracking-wider text-right">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right">
           Copies
         </span>
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-black/5">
+      <div className="divide-y divide-border">
         {visible.map((d, i) => (
           <div
             key={i}
-            className="px-5 py-3 hover:bg-[#FAFAF8] transition-colors"
+            className="px-5 py-3 hover:bg-muted transition-colors"
           >
             {/* Desktop row */}
             <div className="hidden md:grid grid-cols-[1fr_140px_80px] gap-4 items-center">
               <div className="min-w-0">
                 <Link
                   href={`/textes/${d.canonical_id}`}
-                  className="text-sm font-medium text-[#1A3A5C] hover:underline no-underline block truncate"
+                  className="text-sm font-medium text-primary hover:underline no-underline block truncate"
                 >
                   {d.title}
                 </Link>
-                <span className="text-xs text-[#AAA]">
+                <span className="text-xs text-muted-foreground">
                   {formatDate(d.publication_date)}
                 </span>
               </div>
-              <span className="text-xs text-[#888] truncate">
+              <span className="text-xs text-muted-foreground truncate">
                 {d.issue_number ?? "—"}
               </span>
               <div className="flex justify-end">
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 tabular-nums">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-sm px-2.5 py-0.5 tabular-nums">
                   <Copy size={10} />×{d.occurrences}
                 </span>
               </div>
@@ -84,16 +84,16 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/textes/${d.canonical_id}`}
-                    className="text-sm font-medium text-[#1A3A5C] hover:underline no-underline block truncate"
+                    className="text-sm font-medium text-primary hover:underline no-underline block truncate"
                   >
                     {d.title}
                   </Link>
-                  <span className="text-xs text-[#AAA]">
+                  <span className="text-xs text-muted-foreground">
                     {formatDate(d.publication_date)}
                     {d.issue_number && <> · {d.issue_number}</>}
                   </span>
                 </div>
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5 tabular-nums shrink-0">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-sm px-2.5 py-0.5 tabular-nums shrink-0">
                   <Copy size={10} />×{d.occurrences}
                 </span>
               </div>
@@ -103,8 +103,8 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-black/6 px-5 py-3 flex items-center justify-between bg-black/1">
-        <span className="text-xs text-[#AAA]">
+      <div className="border-t border-border px-5 py-3 flex items-center justify-between bg-muted">
+        <span className="text-xs text-muted-foreground">
           {expanded
             ? `${duplicates.length} groupes · ${totalExtra} entrées en trop`
             : `${PREVIEW_COUNT} sur ${duplicates.length} groupes · ${totalExtra} entrées en trop au total`}
@@ -112,7 +112,7 @@ export function DuplicatesTable({ duplicates }: { duplicates: Duplicate[] }) {
         {duplicates.length > PREVIEW_COUNT && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1.5 text-xs font-medium text-[#1A3A5C] hover:underline"
+            className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
           >
             {expanded ? (
               <>

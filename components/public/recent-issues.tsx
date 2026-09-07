@@ -46,30 +46,30 @@ export async function RecentIssues() {
         <Link
           key={issue.issue_number}
           href={`/journal/${issue.issue_number.split("/").map(encodeURIComponent).join("/")}`}
-          className="group flex items-start gap-4 p-5 bg-white rounded-xl border border-black/[0.07] hover:border-[#1A3A5C]/25 hover:shadow-sm transition-all no-underline"
+          className="group flex items-start gap-4 p-5 bg-background rounded-sm border border-border hover:border-primary/40 transition-colors no-underline"
         >
-          <div className="w-10 h-10 rounded-lg bg-[#EEF3F8] flex items-center justify-center shrink-0 group-hover:bg-[#1A3A5C]/10 transition-colors">
-            <FileText size={16} className="text-[#1A3A5C]" />
+          <div className="w-10 h-10 rounded-sm bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+            <FileText size={16} className="text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-[#111] group-hover:text-[#1A3A5C] transition-colors">
+              <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                 {issue.issue_number}
               </span>
               <ArrowRight
                 size={13}
-                className="text-[#AAA] group-hover:text-[#1A3A5C] group-hover:translate-x-0.5 transition-all shrink-0"
+                className="text-muted-foreground group-hover:text-primary transition-colors shrink-0"
               />
             </div>
             {issue.issue_date && (
               <div className="flex items-center gap-1.5 mt-1">
-                <Calendar size={11} className="text-[#AAA]" />
-                <span className="text-xs text-[#888]">
+                <Calendar size={11} className="text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
                   {formatDate(issue.issue_date)}
                 </span>
               </div>
             )}
-            <p className="text-xs text-[#AAA] mt-1.5">
+            <p className="text-xs text-muted-foreground mt-1.5">
               {Number(issue.count).toLocaleString("fr-FR")} texte
               {Number(issue.count) > 1 ? "s" : ""}
             </p>

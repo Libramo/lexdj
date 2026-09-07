@@ -22,12 +22,12 @@ export function SearchInput({ initialQ }: { initialQ: string }) {
         {isPending ? (
           <Loader2
             size={15}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-[#AAA] animate-spin"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin"
           />
         ) : (
           <Search
             size={15}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-[#AAA] pointer-events-none"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
           />
         )}
         <input
@@ -37,7 +37,7 @@ export function SearchInput({ initialQ }: { initialQ: string }) {
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="Décret, arrêté, nomination, loi organique..."
           autoFocus
-          className="w-full pl-11 pr-10 py-3.5 text-sm border border-black/12 rounded-l-xl bg-white focus:outline-none focus:border-[#1A3A5C]/50 transition-colors"
+          className="w-full pl-11 pr-10 py-3.5 text-sm border border-border rounded-l-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors"
         />
         {q && (
           <button
@@ -45,7 +45,7 @@ export function SearchInput({ initialQ }: { initialQ: string }) {
               setQ("");
               router.push("/recherche");
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#CCC] hover:text-[#888] transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <X size={14} />
           </button>
@@ -54,7 +54,7 @@ export function SearchInput({ initialQ }: { initialQ: string }) {
       <button
         onClick={submit}
         disabled={!q.trim() || isPending}
-        className="px-6 bg-[#1A3A5C] text-white text-sm font-medium rounded-r-xl hover:bg-[#122840] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        className="px-6 bg-primary text-primary-foreground text-sm font-medium rounded-r-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
       >
         Rechercher
       </button>

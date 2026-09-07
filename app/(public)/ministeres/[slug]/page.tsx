@@ -12,6 +12,14 @@ interface Props {
   searchParams: Promise<{ page?: string; type?: string }>;
 }
 
+// Loi gets the brand tint; every other type shares one neutral tone —
+// mirrors hero-search.tsx's DOC_TYPE_COLORS, per ui-context.md's rule
+// against a rainbow of pastel doc-type hues.
+const DOC_TYPE_COLORS: Record<string, string> = {
+  Loi: "bg-primary/10 text-primary",
+};
+const DEFAULT_DOC_TYPE_COLOR = "bg-muted text-muted-foreground";
+
 function formatDate(d: string | null) {
   if (!d) return null;
   try {
@@ -98,10 +106,10 @@ export default async function MinistryPage({ params, searchParams }: Props) {
   return (
     <div className="max-w-5xl mx-auto px-8 py-10">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-[#888] mb-8">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-8">
         <Link
           href="/ministeres"
-          className="flex items-center gap-1.5 hover:text-[#111] transition-colors no-underline"
+          className="flex items-center gap-1.5 hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft size={14} />
           Ministères
@@ -109,16 +117,16 @@ export default async function MinistryPage({ params, searchParams }: Props) {
       </div>
 
       {/* Header */}
-      <div className="mb-8 pb-8 border-b border-black/6">
+      <div className="mb-8 pb-8 border-b border-border">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#1A3A5C] flex items-center justify-center shrink-0">
-            <Building2 size={20} className="text-white" />
+          <div className="w-12 h-12 rounded-sm bg-primary flex items-center justify-center shrink-0">
+            <Building2 size={20} className="text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111] leading-snug">
+            <h1 className="font-sans uppercase font-black text-2xl tracking-tight text-foreground leading-snug">
               {ministry}
             </h1>
-            <p className="text-sm text-[#888] mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               {Number(exists.count).toLocaleString("fr-FR")} textes publiés
             </p>
           </div>
@@ -128,10 +136,10 @@ export default async function MinistryPage({ params, searchParams }: Props) {
         <div className="flex flex-wrap gap-2 mt-6">
           <Link
             href={`/ministeres/${slug}`}
-            className={`text-xs font-medium rounded-full px-3 py-1.5 transition-colors no-underline border ${
+            className={`text-xs font-medium rounded-sm px-3 py-1.5 transition-colors no-underline border ${
               !typeFilter
-                ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
-                : "text-[#666] border-black/10 hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C]"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
             }`}
           >
             Tous ({Number(exists.count).toLocaleString("fr-FR")})
@@ -142,10 +150,10 @@ export default async function MinistryPage({ params, searchParams }: Props) {
               <Link
                 key={d.doc_type}
                 href={`/ministeres/${slug}?type=${encodeURIComponent(d.doc_type!)}`}
-                className={`text-xs font-medium rounded-full px-3 py-1.5 transition-colors no-underline border ${
+                className={`text-xs font-medium rounded-sm px-3 py-1.5 transition-colors no-underline border ${
                   typeFilter === d.doc_type
-                    ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
-                    : "text-[#666] border-black/10 hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C]"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
                 }`}
               >
                 {d.doc_type} ({Number(d.count).toLocaleString("fr-FR")})
@@ -155,53 +163,57 @@ export default async function MinistryPage({ params, searchParams }: Props) {
       </div>
 
       {/* Results count */}
-      <p className="text-sm text-[#888] mb-5">
+      <p className="text-sm text-muted-foreground mb-5">
         {total.toLocaleString("fr-FR")} texte{total > 1 ? "s" : ""}
         {typeFilter && ` · ${typeFilter}`}
       </p>
 
       {/* Laws list */}
-      <div className="flex flex-col divide-y divide-black/6 border border-black/[0.07] rounded-xl overflow-hidden bg-white mb-6">
+      <div className="flex flex-col divide-y divide-border border border-border rounded-sm overflow-hidden bg-background mb-6">
         {rows.map((law) => (
           <Link
             key={law.id}
             href={`/textes/${law.id}`}
-            className="group flex items-start gap-4 px-5 py-4 hover:bg-[#FAFAF8] transition-colors no-underline"
+            className="group flex items-start gap-4 px-5 py-4 hover:bg-muted transition-colors no-underline"
           >
             <div className="shrink-0 pt-0.5">
-              <span className="text-[11px] font-medium bg-[#EEF3F8] text-[#1A3A5C] rounded px-2 py-0.5 whitespace-nowrap">
+              <span
+                className={`text-[11px] font-medium rounded-sm px-2 py-0.5 whitespace-nowrap ${
+                  DOC_TYPE_COLORS[law.doc_type ?? ""] ?? DEFAULT_DOC_TYPE_COLOR
+                }`}
+              >
                 {law.doc_type ?? "—"}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[#111] leading-snug group-hover:text-[#1A3A5C] transition-colors line-clamp-2">
+              <p className="text-sm font-medium text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
                 {law.title ?? "Sans titre"}
               </p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
                 {law.reference_number && (
-                  <span className="text-xs font-mono text-[#AAA]">
+                  <span className="text-xs font-mono text-muted-foreground">
                     {law.reference_number}
                   </span>
                 )}
                 {law.mesure && (
-                  <span className="text-xs text-[#AAA]">{law.mesure}</span>
+                  <span className="text-xs text-muted-foreground">{law.mesure}</span>
                 )}
               </div>
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
               {law.publication_date && (
-                <span className="text-xs text-[#AAA] tabular-nums whitespace-nowrap">
+                <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
                   {formatDate(law.publication_date)}
                 </span>
               )}
               {law.issue_number && (
-                <span className="text-[11px] text-[#CCC]">
+                <span className="text-[11px] text-muted-foreground">
                   N° {law.issue_number}
                 </span>
               )}
               <ArrowRight
                 size={13}
-                className="text-[#CCC] group-hover:text-[#1A3A5C] group-hover:translate-x-0.5 transition-all"
+                className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all"
               />
             </div>
           </Link>
@@ -211,14 +223,14 @@ export default async function MinistryPage({ params, searchParams }: Props) {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-[#888]">
+          <span className="text-sm text-muted-foreground">
             Page {page} / {totalPages}
           </span>
           <div className="flex gap-2">
             {page > 1 && (
               <Link
                 href={pageUrl(page - 1)}
-                className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                className="px-4 py-2 text-sm border border-border rounded-sm hover:bg-muted transition-colors no-underline text-foreground"
               >
                 ← Précédent
               </Link>
@@ -226,7 +238,7 @@ export default async function MinistryPage({ params, searchParams }: Props) {
             {page < totalPages && (
               <Link
                 href={pageUrl(page + 1)}
-                className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                className="px-4 py-2 text-sm border border-border rounded-sm hover:bg-muted transition-colors no-underline text-foreground"
               >
                 Suivant →
               </Link>

@@ -39,7 +39,7 @@ export function DecadeChart({ data }: { data: DecadeData[] }) {
         text: "text-violet-700",
         label: "Post-indép.",
       };
-    return { bar: "bg-[#1A3A5C]/60", text: "text-[#1A3A5C]", label: "Moderne" };
+    return { bar: "bg-primary/60", text: "text-primary", label: "Moderne" };
   };
 
   return (
@@ -49,12 +49,12 @@ export function DecadeChart({ data }: { data: DecadeData[] }) {
         const { bar, text } = getColor(d.decade);
         return (
           <div key={d.decade} className="flex items-center gap-4">
-            <span className="text-sm font-medium text-[#555] w-14 shrink-0 tabular-nums text-right">
+            <span className="text-sm font-medium text-muted-foreground w-14 shrink-0 tabular-nums text-right">
               {d.decade}s
             </span>
-            <div className="flex-1 h-7 bg-black/3 rounded-lg overflow-hidden relative">
+            <div className="flex-1 h-7 bg-muted rounded-sm overflow-hidden relative">
               <motion.div
-                className={`h-full ${bar} rounded-lg flex items-center`}
+                className={`h-full ${bar} rounded-sm flex items-center`}
                 initial={{ width: 0 }}
                 animate={inView ? { width: `${pct}%` } : { width: 0 }}
                 transition={{
@@ -71,7 +71,7 @@ export function DecadeChart({ data }: { data: DecadeData[] }) {
               </motion.div>
               {pct <= 20 && (
                 <span
-                  className={`absolute left-[${pct}%] top-1/2 -translate-y-1/2 ml-2 text-[11px] font-semibold ${text} tabular-nums`}
+                  className={`absolute top-1/2 -translate-y-1/2 text-[11px] font-semibold ${text} tabular-nums`}
                   style={{ left: `${pct}%`, marginLeft: 8 }}
                 >
                   {d.missing_count.toLocaleString("fr-FR")}
@@ -83,15 +83,15 @@ export function DecadeChart({ data }: { data: DecadeData[] }) {
       })}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 pt-3 border-t border-black/5">
+      <div className="flex flex-wrap gap-3 pt-3 border-t border-border">
         {[
           { color: "bg-amber-300", label: "Période coloniale" },
           { color: "bg-violet-400", label: "Post-indépendance" },
-          { color: "bg-[#1A3A5C]/60", label: "Période moderne" },
+          { color: "bg-primary/60", label: "Période moderne" },
         ].map((l) => (
           <span
             key={l.label}
-            className="flex items-center gap-1.5 text-xs text-[#888]"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
           >
             <span className={`w-2.5 h-2.5 rounded-sm ${l.color}`} />
             {l.label}
@@ -128,20 +128,20 @@ export function AnimatedKPI({
       initial={{ opacity: 0, y: 20 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="bg-white border border-black/[0.07] rounded-xl p-5"
+      className="bg-background border border-border rounded-sm p-5"
     >
       <div className="flex items-center gap-2 mb-3">
         {icon}
-        <span className="text-xs font-medium text-[#888] uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           {label}
         </span>
       </div>
-      <p className="text-3xl font-semibold text-[#111] tabular-nums">
+      <p className="text-3xl font-semibold text-foreground tabular-nums">
         {value.toLocaleString("fr-FR")}
       </p>
-      <p className="text-xs text-[#AAA] mt-1">{sublabel}</p>
+      <p className="text-xs text-muted-foreground mt-1">{sublabel}</p>
       {barPct !== undefined && (
-        <div className="mt-3 h-1.5 bg-black/5 rounded-full overflow-hidden">
+        <div className="mt-3 h-1.5 bg-muted rounded-full overflow-hidden">
           <motion.div
             className={`h-full rounded-full ${color}`}
             initial={{ width: 0 }}
@@ -155,6 +155,10 @@ export function AnimatedKPI({
 }
 
 // ── Publication timeline sparkline ────────────────────────────────────────────
+// Redrawn for a light `bg-background` header (previously designed for the
+// old solid-navy header — white strokes on white would be invisible now).
+// Uses `currentColor` bound to `text-primary` on the wrapper so the line
+// and area fill stay token-driven rather than hardcoded.
 
 export function TimelineSpark({ data }: { data: TimelineData[] }) {
   const ref = useRef(null);
@@ -192,12 +196,12 @@ export function TimelineSpark({ data }: { data: TimelineData[] }) {
   ].filter(Boolean);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative text-primary">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 72 }}>
         <defs>
           <linearGradient id="sg" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="white" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="white" stopOpacity="0.01" />
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.01" />
           </linearGradient>
         </defs>
 
@@ -214,7 +218,8 @@ export function TimelineSpark({ data }: { data: TimelineData[] }) {
         <motion.path
           d={linePath}
           fill="none"
-          stroke="rgba(255,255,255,0.5)"
+          stroke="currentColor"
+          strokeOpacity="0.6"
           strokeWidth="1.5"
           strokeLinejoin="round"
           initial={{ pathLength: 0, opacity: 0 }}
@@ -230,7 +235,7 @@ export function TimelineSpark({ data }: { data: TimelineData[] }) {
               y1={0}
               x2={x1977}
               y2={H}
-              stroke="#FCD34D"
+              className="stroke-amber-500"
               strokeWidth="1"
               strokeDasharray="3,3"
               initial={{ opacity: 0 }}
@@ -241,7 +246,7 @@ export function TimelineSpark({ data }: { data: TimelineData[] }) {
               x={x1977 + 4}
               y={14}
               fontSize="9"
-              fill="#FCD34D"
+              className="fill-amber-600"
               fontFamily="monospace"
               initial={{ opacity: 0 }}
               animate={inView ? { opacity: 0.9 } : {}}
@@ -256,7 +261,7 @@ export function TimelineSpark({ data }: { data: TimelineData[] }) {
       {/* Year labels */}
       <div className="flex justify-between mt-1">
         {labelYears.map((d) => (
-          <span key={d.year} className="text-[10px] text-white/30 tabular-nums">
+          <span key={d.year} className="text-[10px] text-muted-foreground tabular-nums">
             {d.year}
           </span>
         ))}

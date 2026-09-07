@@ -28,8 +28,6 @@ export default async function IssuePage({ params }: Props) {
   const { issue: issueParts } = await params;
   const issue = issueParts.map(decodeURIComponent).join("/");
 
-  console.log("Issue : ", issue);
-
   const [rows, missingRows] = await Promise.all([
     // Laws for this issue — exclude duplicates
     db
@@ -103,8 +101,6 @@ export default async function IssuePage({ params }: Props) {
       .then((r) => r[0]?.url ?? null),
   ]);
 
-  console.log(issueUrl);
-
   // Group available laws by doc_type
   const grouped = rows.reduce<Record<string, typeof rows>>((acc, law) => {
     const key = law.doc_type ?? "Autres";
@@ -135,34 +131,34 @@ export default async function IssuePage({ params }: Props) {
   return (
     <div className="max-w-4xl mx-auto px-8 py-10">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-[#888] mb-8">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-8">
         <Link
           href="/journal"
-          className="flex items-center gap-1.5 hover:text-[#111] transition-colors no-underline"
+          className="flex items-center gap-1.5 hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft size={14} /> Numéros
         </Link>
         <span>/</span>
-        <span className="text-[#111] font-medium">N° {issue}</span>
+        <span className="text-foreground font-medium">N° {issue}</span>
       </div>
 
       {/* Header */}
-      <div className="mb-8 pb-8 border-b border-black/6">
+      <div className="mb-8 pb-8 border-b border-border">
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-9 h-9 rounded-lg bg-[#1A3A5C] flex items-center justify-center">
-                <FileText size={15} className="text-white" />
+              <div className="w-9 h-9 rounded-sm bg-primary flex items-center justify-center">
+                <FileText size={15} className="text-primary-foreground" />
               </div>
-              <span className="text-xs font-medium text-[#4A7FA8] uppercase tracking-wider">
+              <span className="text-xs font-medium text-primary uppercase tracking-wider">
                 Journal Officiel
               </span>
             </div>
-            <h1 className="font-['Libre_Baskerville'] text-3xl font-normal text-[#111]">
+            <h1 className="font-serif text-3xl font-normal text-foreground">
               Numéro du {issue.slice(2)}
             </h1>
             {issueDate && (
-              <div className="flex items-center gap-2 mt-2 text-sm text-[#888]">
+              <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                 <Calendar size={13} />
                 {formatDate(issueDate)}
                 {issueUrl && (
@@ -170,7 +166,7 @@ export default async function IssuePage({ params }: Props) {
                     href={issueUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-[#4A7FA8] hover:underline no-underline mt-1"
+                    className="flex items-center gap-1.5 text-xs text-primary hover:underline no-underline mt-1"
                   >
                     Voir sur le portail officiel ↗
                   </a>
@@ -182,10 +178,10 @@ export default async function IssuePage({ params }: Props) {
           {/* Stats */}
           <div className="flex gap-6 shrink-0">
             <div className="text-right">
-              <div className="text-3xl font-semibold text-[#111] tabular-nums">
+              <div className="text-3xl font-semibold text-foreground tabular-nums">
                 {rows.length}
               </div>
-              <div className="text-xs text-[#AAA]">
+              <div className="text-xs text-muted-foreground">
                 disponible{rows.length > 1 ? "s" : ""}
               </div>
             </div>
@@ -194,7 +190,7 @@ export default async function IssuePage({ params }: Props) {
                 <div className="text-3xl font-semibold text-amber-500 tabular-nums">
                   {missingRows.length}
                 </div>
-                <div className="text-xs text-[#AAA]">
+                <div className="text-xs text-muted-foreground">
                   inaccessible{missingRows.length > 1 ? "s" : ""}
                 </div>
               </div>
@@ -205,7 +201,7 @@ export default async function IssuePage({ params }: Props) {
         {/* Coverage bar */}
         {missingRows.length > 0 && (
           <div className="mt-5">
-            <div className="flex justify-between text-xs text-[#AAA] mb-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
               <span>Complétude de ce numéro</span>
               <span>
                 {Math.round(
@@ -214,9 +210,9 @@ export default async function IssuePage({ params }: Props) {
                 %
               </span>
             </div>
-            <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#1A3A5C] rounded-full"
+                className="h-full bg-primary rounded-full"
                 style={{
                   width: `${Math.round((rows.length / (rows.length + missingRows.length)) * 100)}%`,
                 }}
@@ -230,7 +226,7 @@ export default async function IssuePage({ params }: Props) {
           {prevIssue && (
             <Link
               href={`/journal/${prevIssue.split("/").map(encodeURIComponent).join("/")}`}
-              className="flex items-center gap-2 px-4 py-2 text-sm border border-black/10 rounded-lg hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C] transition-colors no-underline text-[#666]"
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-border rounded-sm hover:border-primary/40 hover:text-primary transition-colors no-underline text-muted-foreground"
             >
               <ArrowLeft size={13} /> {prevIssue.toUpperCase()}
             </Link>
@@ -238,7 +234,7 @@ export default async function IssuePage({ params }: Props) {
           {nextIssue && (
             <Link
               href={`/journal/${nextIssue.split("/").map(encodeURIComponent).join("/")}`}
-              className="flex items-center gap-2 px-4 py-2 text-sm border border-black/10 rounded-lg hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C] transition-colors no-underline text-[#666]"
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-border rounded-sm hover:border-primary/40 hover:text-primary transition-colors no-underline text-muted-foreground"
             >
               {nextIssue.toUpperCase()} <ArrowRight size={13} />
             </Link>
@@ -251,36 +247,36 @@ export default async function IssuePage({ params }: Props) {
         {sortedGroups.map(([docType, items]) => (
           <div key={docType}>
             <div className="flex items-center gap-3 mb-3">
-              <span className="text-xs font-semibold text-[#1A3A5C] uppercase tracking-widest">
+              <span className="text-xs font-semibold text-primary uppercase tracking-widest">
                 {docType}
               </span>
-              <span className="text-xs text-[#CCC]">{items.length}</span>
-              <div className="flex-1 h-px bg-black/6" />
+              <span className="text-xs text-muted-foreground">{items.length}</span>
+              <div className="flex-1 h-px bg-border" />
             </div>
-            <div className="flex flex-col divide-y divide-black/5 border border-black/[0.07] rounded-xl overflow-hidden bg-white">
+            <div className="flex flex-col divide-y divide-border border border-border rounded-sm overflow-hidden bg-background">
               {items.map((law) => (
                 <Link
                   key={law.id}
                   href={`/textes/${law.id}`}
-                  className="group flex items-start gap-4 px-5 py-4 hover:bg-[#FAFAF8] transition-colors no-underline"
+                  className="group flex items-start gap-4 px-5 py-4 hover:bg-muted transition-colors no-underline"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#111] leading-snug group-hover:text-[#1A3A5C] transition-colors line-clamp-2">
+                    <p className="text-sm font-medium text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
                       {law.title ?? "Sans titre"}
                     </p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
                       {law.reference_number && (
-                        <span className="text-xs font-mono text-[#AAA]">
+                        <span className="text-xs font-mono text-muted-foreground">
                           {law.reference_number}
                         </span>
                       )}
                       {law.ministry && (
-                        <span className="text-xs text-[#888] truncate max-w-70">
+                        <span className="text-xs text-muted-foreground truncate max-w-70">
                           {toTitleCase(law.ministry)}
                         </span>
                       )}
                       {law.signed_by && (
-                        <span className="text-xs text-[#AAA]">
+                        <span className="text-xs text-muted-foreground">
                           Signé : {law.signed_by}
                         </span>
                       )}
@@ -288,7 +284,7 @@ export default async function IssuePage({ params }: Props) {
                   </div>
                   <ArrowRight
                     size={13}
-                    className="text-[#CCC] group-hover:text-[#1A3A5C] group-hover:translate-x-0.5 transition-all shrink-0 mt-1"
+                    className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0 mt-1"
                   />
                 </Link>
               ))}

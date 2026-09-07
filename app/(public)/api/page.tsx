@@ -222,7 +222,7 @@ const ENDPOINTS = [
 
 function MethodBadge({ method }: { method: string }) {
   return (
-    <span className="text-[11px] font-bold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-2 py-0.5">
+    <span className="text-[11px] font-bold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-sm px-2 py-0.5">
       {method}
     </span>
   );
@@ -230,31 +230,31 @@ function MethodBadge({ method }: { method: string }) {
 
 export default function ApiDocsPage() {
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-[#1A3A5C] text-white">
+      <div className="bg-background border-b border-border">
         <div className="max-w-4xl mx-auto px-8 py-14">
           <Link
             href="/"
-            className="flex items-center gap-2 text-white/50 hover:text-white transition-colors no-underline text-sm mb-8"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors no-underline text-sm mb-8"
           >
             <ArrowLeft size={14} /> Retour à LexDJ
           </Link>
-          <p className="text-white/50 text-xs uppercase tracking-widest font-medium mb-3">
+          <p className="text-muted-foreground text-xs uppercase tracking-widest font-medium mb-3">
             LexDJ · Documentation
           </p>
-          <h1 className="font-['Libre_Baskerville'] text-4xl font-normal leading-tight mb-4">
-            API <em className="text-[#9DC4E0]">Reference</em>
+          <h1 className="font-sans uppercase font-black text-4xl tracking-tight leading-tight text-foreground mb-4">
+            API <span className="text-muted-foreground">Reference</span>
           </h1>
-          <p className="text-white/50 text-sm font-light max-w-lg mb-6">
+          <p className="text-muted-foreground text-sm max-w-lg mb-6">
             Accès programmatique à 53 806 textes officiels du Journal Officiel
             de la République de Djibouti. Gratuit. Pas de clé requise.
           </p>
 
           {/* Base URL */}
-          <div className="bg-white/10 border border-white/10 rounded-xl px-5 py-3 font-mono text-sm text-white/80 inline-block">
+          <div className="bg-muted border border-border rounded-sm px-5 py-3 font-mono text-sm text-muted-foreground inline-block">
             Base URL:{" "}
-            <span className="text-white font-semibold">
+            <span className="text-foreground font-semibold">
               https://lexdj.blyanalytics.com
             </span>
           </div>
@@ -263,14 +263,14 @@ export default function ApiDocsPage() {
 
       <div className="max-w-4xl mx-auto px-8 py-12 space-y-6">
         {/* Rate limit notice */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-sm px-5 py-4">
           <p className="text-sm font-semibold text-amber-900 mb-0.5">
             Rate limiting
           </p>
           <p className="text-xs text-amber-700">
             60 requêtes par minute par adresse IP. Les requêtes dépassant cette
             limite retournent un statut{" "}
-            <code className="bg-amber-100 px-1 rounded">429</code>.
+            <code className="bg-amber-100 px-1 rounded-sm">429</code>.
           </p>
         </div>
 
@@ -278,40 +278,40 @@ export default function ApiDocsPage() {
         {ENDPOINTS.map((ep, i) => (
           <div
             key={i}
-            className="bg-white border border-black/[0.07] rounded-2xl overflow-hidden"
+            className="bg-background border border-border rounded-sm overflow-hidden"
           >
             {/* Endpoint header */}
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-black/6">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-border">
               <MethodBadge method={ep.method} />
-              <code className="text-sm font-mono font-semibold text-[#111]">
+              <code className="text-sm font-mono font-semibold text-foreground">
                 {ep.path}
               </code>
             </div>
 
             <div className="px-6 py-5 space-y-5">
-              <p className="text-sm text-[#555] leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 {ep.description}
               </p>
 
               {/* Parameters */}
               <div>
-                <p className="text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-3">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                   Paramètres
                 </p>
-                <div className="border border-black/[0.07] rounded-xl overflow-hidden">
+                <div className="border border-border rounded-sm overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-[#FAFAF8] border-b border-black/6">
-                        <th className="text-left px-4 py-2 text-[#888] font-medium">
+                      <tr className="bg-muted border-b border-border">
+                        <th className="text-left px-4 py-2 text-muted-foreground font-medium">
                           Nom
                         </th>
-                        <th className="text-left px-4 py-2 text-[#888] font-medium">
+                        <th className="text-left px-4 py-2 text-muted-foreground font-medium">
                           Type
                         </th>
-                        <th className="text-left px-4 py-2 text-[#888] font-medium">
+                        <th className="text-left px-4 py-2 text-muted-foreground font-medium">
                           Défaut
                         </th>
-                        <th className="text-left px-4 py-2 text-[#888] font-medium">
+                        <th className="text-left px-4 py-2 text-muted-foreground font-medium">
                           Description
                         </th>
                       </tr>
@@ -320,16 +320,16 @@ export default function ApiDocsPage() {
                       {ep.params.map((p, j) => (
                         <tr
                           key={j}
-                          className="border-b border-black/4 last:border-0"
+                          className="border-b border-border last:border-0"
                         >
-                          <td className="px-4 py-2.5 font-mono text-[#1A3A5C] font-medium">
+                          <td className="px-4 py-2.5 font-mono text-primary font-medium">
                             {p.name}
                           </td>
-                          <td className="px-4 py-2.5 text-[#888]">{p.type}</td>
-                          <td className="px-4 py-2.5 font-mono text-[#AAA]">
+                          <td className="px-4 py-2.5 text-muted-foreground">{p.type}</td>
+                          <td className="px-4 py-2.5 font-mono text-muted-foreground">
                             {p.default}
                           </td>
-                          <td className="px-4 py-2.5 text-[#555]">
+                          <td className="px-4 py-2.5 text-foreground">
                             {p.description}
                           </td>
                         </tr>
@@ -341,20 +341,20 @@ export default function ApiDocsPage() {
 
               {/* Example */}
               <div>
-                <p className="text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   Exemple
                 </p>
-                <div className="bg-[#0D1117] rounded-xl px-4 py-3 font-mono text-xs text-emerald-400 overflow-x-auto">
+                <div className="bg-neutral-900 rounded-sm px-4 py-3 font-mono text-xs text-emerald-400 overflow-x-auto">
                   GET https://lexdj.blyanalytics.com{ep.example}
                 </div>
               </div>
 
               {/* Response */}
               <div>
-                <p className="text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   Réponse
                 </p>
-                <pre className="bg-[#0D1117] rounded-xl px-4 py-3 font-mono text-xs text-[#E6EDF3] overflow-x-auto leading-relaxed">
+                <pre className="bg-neutral-900 rounded-sm px-4 py-3 font-mono text-xs text-neutral-100 overflow-x-auto leading-relaxed">
                   {ep.response}
                 </pre>
               </div>
@@ -363,19 +363,19 @@ export default function ApiDocsPage() {
         ))}
 
         {/* Error codes */}
-        <div className="bg-white border border-black/[0.07] rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-black/6">
-            <p className="text-sm font-semibold text-[#111]">Codes d'erreur</p>
+        <div className="bg-background border border-border rounded-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <p className="text-sm font-semibold text-foreground">Codes d'erreur</p>
           </div>
           <div className="px-6 py-5">
-            <div className="border border-black/[0.07] rounded-xl overflow-hidden">
+            <div className="border border-border rounded-sm overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#FAFAF8] border-b border-black/6">
-                    <th className="text-left px-4 py-2 text-[#888] font-medium">
+                  <tr className="bg-muted border-b border-border">
+                    <th className="text-left px-4 py-2 text-muted-foreground font-medium">
                       Code
                     </th>
-                    <th className="text-left px-4 py-2 text-[#888] font-medium">
+                    <th className="text-left px-4 py-2 text-muted-foreground font-medium">
                       Signification
                     </th>
                   </tr>
@@ -390,12 +390,12 @@ export default function ApiDocsPage() {
                   ].map((e) => (
                     <tr
                       key={e.code}
-                      className="border-b border-black/4 last:border-0"
+                      className="border-b border-border last:border-0"
                     >
-                      <td className="px-4 py-2.5 font-mono font-bold text-[#1A3A5C]">
+                      <td className="px-4 py-2.5 font-mono font-bold text-primary">
                         {e.code}
                       </td>
-                      <td className="px-4 py-2.5 text-[#555]">{e.label}</td>
+                      <td className="px-4 py-2.5 text-foreground">{e.label}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -405,9 +405,9 @@ export default function ApiDocsPage() {
         </div>
 
         {/* Changelog */}
-        <div className="bg-white border border-black/[0.07] rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-black/6">
-            <p className="text-sm font-semibold text-[#111]">Changelog</p>
+        <div className="bg-background border border-border rounded-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <p className="text-sm font-semibold text-foreground">Changelog</p>
           </div>
           <div className="px-6 py-5 space-y-4">
             {[
@@ -424,19 +424,19 @@ export default function ApiDocsPage() {
             ].map((release) => (
               <div key={release.version} className="flex gap-4">
                 <div className="shrink-0 text-right w-20">
-                  <span className="text-xs font-mono font-bold text-[#1A3A5C]">
+                  <span className="text-xs font-mono font-bold text-primary">
                     {release.version}
                   </span>
-                  <p className="text-[11px] text-[#AAA]">{release.date}</p>
+                  <p className="text-[11px] text-muted-foreground">{release.date}</p>
                 </div>
-                <div className="flex-1 border-l border-black/6 pl-4">
+                <div className="flex-1 border-l border-border pl-4">
                   <ul className="space-y-1">
                     {release.changes.map((c, i) => (
                       <li
                         key={i}
-                        className="text-xs text-[#555] flex items-start gap-2"
+                        className="text-xs text-foreground flex items-start gap-2"
                       >
-                        <span className="text-[#1A3A5C] mt-0.5">→</span>
+                        <span className="text-primary mt-0.5">→</span>
                         {c}
                       </li>
                     ))}
@@ -448,12 +448,12 @@ export default function ApiDocsPage() {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-black/6 pt-8 pb-4">
-          <p className="text-xs text-[#AAA] leading-relaxed">
+        <div className="border-t border-border pt-8 pb-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             Cette API est fournie gratuitement par{" "}
             <a
               href="https://blyanalytics.com"
-              className="text-[#1A3A5C] hover:underline no-underline"
+              className="text-primary hover:underline no-underline"
             >
               BLY Analytics
             </a>
@@ -461,7 +461,7 @@ export default function ApiDocsPage() {
             la République de Djibouti. Pour toute question :{" "}
             <a
               href="mailto:contact@blyanalytics.com"
-              className="text-[#1A3A5C] hover:underline no-underline"
+              className="text-primary hover:underline no-underline"
             >
               contact@blyanalytics.com
             </a>

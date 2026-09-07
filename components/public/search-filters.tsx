@@ -58,16 +58,16 @@ function DocTypeFilter({
 
   return (
     <div>
-      <p className="text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-3">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
         Type de texte
       </p>
       <div className="flex flex-col gap-0.5">
         <button
           onClick={() => onSelect("")}
-          className={`text-left text-sm px-3 py-1.5 rounded-lg transition-colors ${
+          className={`text-left text-sm px-3 py-1.5 rounded-sm transition-colors ${
             !currentType
-              ? "bg-[#1A3A5C] text-white font-medium"
-              : "text-[#444] hover:bg-black/4"
+              ? "bg-primary text-primary-foreground font-medium"
+              : "text-foreground hover:bg-muted"
           }`}
         >
           Tous
@@ -76,15 +76,15 @@ function DocTypeFilter({
           <button
             key={t.value}
             onClick={() => onSelect(t.value)}
-            className={`text-left text-sm px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between gap-2 ${
+            className={`text-left text-sm px-3 py-1.5 rounded-sm transition-colors flex items-center justify-between gap-2 ${
               currentType === t.value
-                ? "bg-[#1A3A5C] text-white font-medium"
-                : "text-[#444] hover:bg-black/4"
+                ? "bg-primary text-primary-foreground font-medium"
+                : "text-foreground hover:bg-muted"
             }`}
           >
             <span className="truncate">{t.value}</span>
             <span
-              className={`text-[11px] shrink-0 ${currentType === t.value ? "text-white/60" : "text-[#CCC]"}`}
+              className={`text-[11px] shrink-0 ${currentType === t.value ? "text-primary-foreground/60" : "text-muted-foreground"}`}
             >
               {t.count.toLocaleString("fr-FR")}
             </span>
@@ -93,7 +93,7 @@ function DocTypeFilter({
         {docTypes.length > DOC_TYPE_PREVIEW && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-left text-xs text-[#1A3A5C] px-3 py-1 hover:underline"
+            className="text-left text-xs text-primary px-3 py-1 hover:underline"
           >
             {expanded ? "Voir moins ↑" : `+${hidden} autres`}
           </button>
@@ -117,12 +117,12 @@ function TopicsFilter({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[11px] font-semibold text-[#888] uppercase tracking-wider">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
           Thème
         </p>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-xs text-[#1A3A5C] hover:underline flex items-center gap-1"
+          className="text-xs text-primary hover:underline flex items-center gap-1"
         >
           {expanded ? (
             <>
@@ -138,10 +138,10 @@ function TopicsFilter({
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => onSelect("")}
-          className={`text-xs font-medium rounded-full px-3 py-1.5 border transition-colors ${
+          className={`text-xs font-medium rounded-sm px-3 py-1.5 border transition-colors ${
             !currentTopic
-              ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
-              : "text-[#666] border-black/10 hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C]"
+              ? "bg-primary text-primary-foreground border-primary"
+              : "text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
           }`}
         >
           Tous les thèmes
@@ -150,10 +150,10 @@ function TopicsFilter({
           <button
             key={topic}
             onClick={() => onSelect(topic)}
-            className={`text-xs font-medium rounded-full px-3 py-1.5 border transition-colors ${
+            className={`text-xs font-medium rounded-sm px-3 py-1.5 border transition-colors ${
               currentTopic === topic
-                ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
-                : "text-[#666] border-black/10 hover:border-[#1A3A5C]/30 hover:text-[#1A3A5C]"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
             }`}
           >
             {topic}
@@ -204,16 +204,16 @@ export function SearchFilters({
       {/* Toggle button */}
       <button
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border transition-colors ${
+        className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-sm border transition-colors ${
           hasActiveFilters
-            ? "border-[#1A3A5C]/30 text-[#1A3A5C] bg-[#EEF3F8]"
-            : "border-black/8 text-[#666] bg-white hover:bg-black/2"
+            ? "border-primary/30 text-primary bg-primary/10"
+            : "border-border text-muted-foreground bg-background hover:bg-muted"
         }`}
       >
         <SlidersHorizontal size={13} />
         Filtres avancés
         {hasActiveFilters && (
-          <span className="w-4 h-4 rounded-full bg-[#1A3A5C] text-white text-[9px] font-bold flex items-center justify-center">
+          <span className="w-4 h-4 rounded-sm bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
             {
               [currentType, currentMinistry, currentEra, currentTopic].filter(
                 Boolean,
@@ -226,7 +226,7 @@ export function SearchFilters({
 
       {/* Panel */}
       {open && (
-        <div className="mt-2 bg-white border border-black/[0.07] rounded-xl p-5 space-y-6">
+        <div className="mt-2 bg-background border border-border rounded-sm p-5 space-y-6">
           <TopicsFilter
             currentTopic={currentTopic}
             onSelect={(t) => push({ topic: t })}
@@ -234,16 +234,16 @@ export function SearchFilters({
 
           {/* Era filter */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <p className="text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-3">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Période historique
             </p>
             <div className="flex flex-col gap-1.5">
               <button
                 onClick={() => push({ era: "" })}
-                className={`text-left text-sm px-3 py-2 rounded-lg transition-colors ${
+                className={`text-left text-sm px-3 py-2 rounded-sm transition-colors ${
                   !currentEra
-                    ? "bg-[#1A3A5C] text-white"
-                    : "text-[#444] hover:bg-black/4"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-muted"
                 }`}
               >
                 Toutes les périodes
@@ -252,15 +252,15 @@ export function SearchFilters({
                 <button
                   key={era.value}
                   onClick={() => push({ era: era.value })}
-                  className={`text-left px-3 py-2 rounded-lg transition-colors ${
+                  className={`text-left px-3 py-2 rounded-sm transition-colors ${
                     currentEra === era.value
-                      ? "bg-[#1A3A5C] text-white"
-                      : "text-[#444] hover:bg-black/4"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-muted"
                   }`}
                 >
                   <span className="text-sm block">{era.label}</span>
                   <span
-                    className={`text-[11px] ${currentEra === era.value ? "text-white/60" : "text-[#AAA]"}`}
+                    className={`text-[11px] ${currentEra === era.value ? "text-primary-foreground/60" : "text-muted-foreground"}`}
                   >
                     {era.sub}
                   </span>
@@ -278,13 +278,13 @@ export function SearchFilters({
 
           {/* Ministry */}
           <div>
-            <p className="text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-3">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               Ministère
             </p>
             <select
               value={currentMinistry}
               onChange={(e) => push({ ministry: e.target.value })}
-              className="w-full text-sm border border-black/10 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#1A3A5C]/40 mb-3"
+              className="w-full text-sm border border-border rounded-sm px-3 py-2 bg-background text-foreground focus:outline-none focus:border-primary/40 mb-3"
             >
               <option value="">Tous les ministères</option>
               {ministries.map((m) => (
@@ -299,14 +299,14 @@ export function SearchFilters({
                 onClick={() =>
                   push({ type: "", ministry: "", era: "", topic: "" })
                 }
-                className="flex items-center gap-1.5 text-xs text-red-500 hover:underline mt-2"
+                className="flex items-center gap-1.5 text-xs text-destructive hover:underline mt-2"
               >
                 <X size={11} /> Effacer tous les filtres
               </button>
             )}
 
             {isPending && (
-              <p className="text-xs text-[#AAA] animate-pulse mt-2">
+              <p className="text-xs text-muted-foreground animate-pulse mt-2">
                 Chargement...
               </p>
             )}

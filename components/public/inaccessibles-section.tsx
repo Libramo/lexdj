@@ -23,10 +23,10 @@ export function InaccessiblesSection({ laws }: { laws: MissingLaw[] }) {
         <span className="text-xs font-semibold text-amber-600 uppercase tracking-widest">
           Inaccessibles
         </span>
-        <span className="text-xs text-[#CCC]">{laws.length}</span>
+        <span className="text-xs text-muted-foreground">{laws.length}</span>
         <div className="flex-1 h-px bg-amber-100" />
       </div>
-      <div className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
+      <div className="bg-amber-50 border border-amber-100 rounded-sm overflow-hidden">
         <div className="flex items-start gap-3 px-5 py-3 border-b border-amber-100">
           <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700 leading-relaxed">
@@ -42,11 +42,11 @@ export function InaccessiblesSection({ laws }: { laws: MissingLaw[] }) {
               className="flex items-start gap-4 px-5 py-4 opacity-60"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#555] leading-snug line-clamp-2">
+                <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">
                   {law.title ?? "Titre non disponible"}
                 </p>
                 {law.ministry && (
-                  <p className="text-xs text-[#888] mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {toTitleCase(law.ministry)}
                   </p>
                 )}
@@ -55,7 +55,7 @@ export function InaccessiblesSection({ laws }: { laws: MissingLaw[] }) {
                 href={law.url ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] text-amber-600 border border-amber-200 rounded px-2 py-0.5 hover:bg-amber-100 transition-colors no-underline shrink-0 mt-1"
+                className="text-[11px] text-amber-600 border border-amber-200 rounded-sm px-2 py-0.5 hover:bg-amber-100 transition-colors no-underline shrink-0 mt-1"
               >
                 Portail ↗
               </a>

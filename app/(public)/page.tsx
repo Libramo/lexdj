@@ -15,11 +15,11 @@ import {
 } from "lucide-react";
 import { RecentIssues } from "@/components/public/recent-issues";
 import {
-  AnimatedCTA,
-  AnimatedDocTypes,
-  AnimatedHero,
-  AnimatedMinistries,
-  AnimatedSection,
+  ApiCta,
+  DocTypesGrid,
+  Hero,
+  MinistriesStrip,
+  Section,
 } from "@/components/public/animated-hero";
 import { db } from "@/drizzle/src";
 import { count, sql } from "drizzle-orm";
@@ -86,37 +86,37 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col">
       {/* ── HERO ── */}
-      <AnimatedHero stats={stats} />
+      <Hero stats={stats} />
 
       {/* ── RECENT ISSUES ── */}
-      <AnimatedSection className="max-w-6xl mx-auto px-8 py-14 w-full">
+      <Section className="max-w-6xl mx-auto px-8 py-14 w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111] leading-tight">
+            <h2 className="font-sans uppercase font-bold text-foreground text-xl tracking-tight leading-tight">
               Dernières publications
             </h2>
-            <p className="text-sm text-[#666] mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Numéros récents du Journal Officiel
             </p>
           </div>
           <Link
             href="/journal"
-            className="flex items-center gap-1.5 text-sm text-[#1A3A5C] font-medium hover:underline no-underline"
+            className="flex items-center gap-1.5 text-sm text-primary font-medium hover:underline no-underline"
           >
             Tous les numéros <ArrowRight size={14} />
           </Link>
         </div>
         <RecentIssues />
-      </AnimatedSection>
+      </Section>
 
       {/* ── TOPICS ── */}
-      <AnimatedSection className="max-w-6xl mx-auto px-8 py-14 w-full">
+      <Section className="max-w-6xl mx-auto px-8 py-14 w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111] leading-tight">
+            <h2 className="font-sans uppercase font-bold text-foreground text-xl tracking-tight leading-tight">
               Parcourir par thème
             </h2>
-            <p className="text-sm text-[#666] mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Trouvez les textes selon votre besoin
             </p>
           </div>
@@ -128,40 +128,40 @@ export default async function HomePage() {
               <Link
                 key={topic.label}
                 href={`/recherche?topic=${encodeURIComponent(topic.label)}`}
-                className="group flex items-center gap-4 bg-white border border-black/[0.07] rounded-xl px-6 py-5 hover:border-[#1A3A5C]/25 hover:shadow-md hover:-translate-y-0.5 transition-all no-underline"
+                className="group flex items-center gap-4 bg-background border border-border rounded-sm px-6 py-5 hover:border-primary/40 transition-colors no-underline"
               >
-                <div className="w-11 h-11 rounded-lg bg-[#EEF3F8] flex items-center justify-center shrink-0 group-hover:bg-[#1A3A5C] transition-colors">
+                <div className="w-11 h-11 rounded-sm bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
                   <Icon
                     size={20}
-                    className="text-[#1A3A5C] group-hover:text-white transition-colors"
+                    className="text-primary transition-colors"
                   />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#111] group-hover:text-[#1A3A5C] transition-colors leading-snug">
+                  <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-snug">
                     {topic.label}
                   </p>
-                  <p className="text-xs text-[#AAA] tabular-nums mt-0.5">
+                  <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
                     {topic.count.toLocaleString("fr-FR")} textes
                   </p>
                 </div>
                 <ArrowRight
                   size={14}
-                  className="text-[#CCC] group-hover:text-[#1A3A5C] group-hover:translate-x-0.5 transition-all shrink-0 ml-auto"
+                  className="text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-auto"
                 />
               </Link>
             );
           })}
         </div>
-      </AnimatedSection>
+      </Section>
 
       {/* ── BROWSE BY TYPE ── */}
-      <AnimatedDocTypes />
+      <DocTypesGrid />
 
       {/* ── MINISTRIES STRIP ── */}
-      <AnimatedMinistries />
+      <MinistriesStrip />
 
       {/* ── CTA ── */}
-      <AnimatedCTA />
+      <ApiCta />
     </div>
   );
 }
