@@ -86,6 +86,7 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col">
       {/* ── HERO ── */}
+
       <Hero stats={stats} />
 
       {/* ── RECENT ISSUES ── */}
@@ -131,10 +132,7 @@ export default async function HomePage() {
                 className="group flex items-center gap-4 bg-background border border-border rounded-sm px-6 py-5 hover:border-primary/40 transition-colors no-underline"
               >
                 <div className="w-11 h-11 rounded-sm bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
-                  <Icon
-                    size={20}
-                    className="text-primary transition-colors"
-                  />
+                  <Icon size={20} className="text-primary transition-colors" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-snug">

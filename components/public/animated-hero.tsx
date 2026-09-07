@@ -40,16 +40,12 @@ export function Hero({ stats }: { stats: Stat[] }) {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="max-w-6xl mx-auto px-8 pt-20 pb-16"
       >
-        <span className="block font-serif italic text-muted-foreground text-sm mb-6">
-          Archive numérique · 1904–2026
-        </span>
-
         <h1 className="font-sans uppercase font-black text-4xl md:text-5xl lg:text-6xl leading-[1.05] tracking-tight text-foreground max-w-3xl mb-2">
-          Index du Journal Officiel
+          Index du droit djiboutien
         </h1>
-        <h2 className="font-sans uppercase font-black text-4xl md:text-5xl lg:text-6xl leading-[1.05] tracking-tight text-muted-foreground max-w-3xl mb-8">
+        {/* <h2 className="font-sans uppercase font-black text-4xl md:text-5xl lg:text-6xl leading-[1.05] tracking-tight text-muted-foreground max-w-3xl mb-8">
           de la République de Djibouti
-        </h2>
+        </h2> */}
 
         <p className="text-muted-foreground text-lg leading-relaxed max-w-xl mb-10">
           Recherchez et explorez les textes officiels publiés depuis 1904. Un
@@ -192,8 +188,8 @@ export function ApiCta() {
             Accès programmatique via API
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-md">
-            Intégrez les données du Journal Officiel dans vos applications.
-            API REST avec authentification par clé, documentation complète.
+            Intégrez les données du Journal Officiel dans vos applications. API
+            REST avec authentification par clé, documentation complète.
           </p>
         </div>
         <div className="flex flex-col gap-3 shrink-0">

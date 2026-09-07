@@ -18,22 +18,43 @@ Update this file after every meaningful implementation change.
   rendering-fidelity passes on that same import, a richer `/cms` editor,
   and a site-wide full-bleed horizontal-scrollbar fix. See Completed →
   Codes Feature for the full detail.
-- The 2026-09-07 session did three more substantial things: **migrated
+- The 2026-09-07 session did four more substantial things: **migrated
   the entire public site's UI to the current token system** (six
   increments, one page/unit at a time — see Completed → UI Redesign
   entries), **found and fixed 3 real SQL injection vulnerabilities**
   during that same work (a full `sql.raw()` sweep, see Completed →
-  Security), and **swapped Typesense for Meilisearch** (see Completed →
-  Typesense → Meilisearch Swap) via a written, user-approved plan. Also
-  added `context/security.md` (an OWASP-Top-10-style tracker, new this
+  Security), **swapped Typesense for Meilisearch** (see Completed →
+  Typesense → Meilisearch Swap) via a written, user-approved plan, and
+  **built cron-based auto-deploy + scrape/reindex scripts** (see
+  Completed → Cron-Based Deploy and Scrape/Reindex), since none of that
+  was previously automated or even documented. Also added
+  `context/security.md` (an OWASP-Top-10-style tracker, new this
   session) and a matching generic template at
   `C:\Users\Liban\Documents\Projects\webProjects\templates\context\security.md`.
   **All of this is now committed and pushed** to `origin/main` on GitHub
-  (`Libramo/lexdj`) as 4 logical commits (`9c60321`..`9d587b0`) — this
+  (`Libramo/lexdj`) as 5 logical commits (`60d1ae2`..`c49c7be` — the
+  first 4 were rewritten in place after the fact, see below, so these
+  are the final hashes, not the originals) — this
   had never been committed before (the last real commit, `4fa2f9f`,
   predates even the Codes feature). One untracked file, `draft.txt`,
   was deliberately left alone — not created by the assistant, unknown
-  purpose, not committed.
+  purpose, not committed. **Also fixed same session**: the first 4
+  commits had accidentally included a `Co-Authored-By: Claude` trailer
+  (a default the assistant followed without flagging it as optional) —
+  the user explicitly does not want this, ever; the 4 commit messages
+  were rewritten (`git filter-branch --msg-filter`, content verified
+  byte-identical before force-pushing) and the 5th commit correctly
+  omits it. See the `feedback_no_coauthor_trailer` memory — this applies
+  to every future commit, any project, not just this fix.
+- Late in the 2026-09-07 session: scoped (not yet built) **visitor/traffic
+  monitoring**. User already runs Prometheus + Grafana + cAdvisor on the
+  VPS alongside other app containers, but that stack only covers
+  container resource usage, not HTTP traffic or visitor analytics. After
+  discussion, landed on **Umami alone** (not a Prometheus/`prom-client`
+  HTTP-metrics route) as the right scope for what the user actually
+  wants — see Next Up for the full reasoning and the one real gap
+  (Umami is a client-side JS tracker, so it can't see the public
+  `/api/v1/*` REST API's traffic at all, only browser page loads).
 
 ## Current Goal
 
@@ -79,11 +100,27 @@ Update this file after every meaningful implementation change.
      vulnerabilities (4 low/18 moderate/10 high), and no rate limiting on
      `/api/chat`/`/api/suggest`. Neither is urgent but both are logged as
      open.
-  7. `/api/v1/ministries` still returns the wrong data (a leftover
-     copy-paste bug from before this session, found during the SQL
-     injection sweep — returns issue-grouped rows, not ministry-grouped
-     ones, contradicting its own documented `/api` contract). Not fixed
-     yet — straightforward whenever it's prioritized, see Next Up.
+  7. ~~`/api/v1/ministries` returned the wrong data~~ — **fixed**, see
+     Completed → `/api/v1/ministries` Fix.
+  8. **Next feature to start: visitor/traffic monitoring via Umami**
+     (explicit user request — "I want to begin this feature next
+     session"). Scoped, not built. User already runs Prometheus +
+     Grafana + cAdvisor on the VPS (container resource usage only), and
+     considered instrumenting `proxy.ts` with `prom-client` for HTTP
+     traffic metrics instead — decided against that route in favor of
+     **Umami alone**, since it directly covers what the user actually
+     wants (visitor counts, page views, referrers, real-time visitors)
+     without adding complexity the ask didn't call for. Confirmed
+     limitation to carry into that work, not silently rediscover: Umami
+     is a client-side JS tracker, so it will **never see traffic to the
+     public `/api/v1/*` REST API** (no browser, no JS execution there) —
+     if visibility into API usage is ever wanted, that needs a separate,
+     different mechanism regardless of which analytics tool is chosen.
+     Likely shape of the work next session: add an `umami` service to
+     `docker-compose.yml` (its own Postgres — check whether it can reuse
+     this repo's existing `postgres` service with a separate database, or
+     needs its own container, before assuming either) and a tracking
+     script tag in `app/layout.tsx`.
 
 ## Completed
 
@@ -738,6 +775,86 @@ instance.
   what this pass was scoped to do.
 - `npx tsc --noEmit` passes clean after all three fixes.
 
+### `/api/v1/ministries` Fix (2026-09-07, follow-up session)
+
+Fixed the functional bug flagged (not fixed) in the Security sweep entry
+above: `app/api/v1/ministries/route.ts` was a byte-for-byte copy of
+`app/api/v1/issues/route.ts`, grouping by `issue_number`/`issue_date`
+instead of by ministry.
+
+- Rewrote the query to group by `ministry` (mirroring
+  `app/(public)/ministeres/page.tsx`'s `GROUP BY laws.ministry` query),
+  now returning `{ ministry, text_count }` rows matching the documented
+  contract in `app/(public)/api/page.tsx`.
+- Dropped `page`/`limit`/`era` — never part of this endpoint's documented
+  contract (only `q` is), so they were dead copy-paste params from
+  `issues/route.ts` that happened to no-op since nothing else used them.
+  `meta` is now just `{ total }`, matching the docs exactly.
+- Still parameterized via Drizzle's tagged `sql` template (`ministry ILIKE
+  ${q}`) — no injection surface introduced.
+- `npx tsc --noEmit` passes clean. Not yet manually hit in a browser/curl
+  (assistant doesn't start the dev server) — worth a quick
+  `curl localhost:3000/api/v1/ministries?q=finance` check once `npm run dev`
+  is running to confirm the response shape matches the docs exactly.
+
+### Hero Search — Options Panel (2026-09-07, follow-up session)
+
+First half of a Légifrance-inspired search upgrade, scoped as two separate
+units (see this session's conversation): a focus-triggered options panel
+on the homepage hero search bar (this entry, "Unit A"), and a combinable-
+criteria "recherche avancée" mode on `/recherche` (deferred, "Unit B" —
+bigger, needs its own design pass since Meilisearch has no native
+free-text boolean query builder, only facet-attribute filter logic).
+
+- `components/public/hero-search.tsx`: focusing the input now always opens
+  a dropdown containing an options panel — **Zone de recherche** (Tous les
+  champs / Titre / Texte intégral / Ministère / Référence, a `SearchScope`
+  type mirroring `lib/meilisearch-schema.ts`'s `searchableAttributes`) and
+  **Rechercher l'expression exacte** (a toggle). **Corrected mid-session**
+  after checking real Légifrance behavior (the user's screenshot showed it
+  live): the panel does NOT get replaced by suggestions once you type —
+  it stays pinned above them. Suggestions render below it once there's a
+  2+ character query (own "Suggestions" heading), and a two-link footer
+  ("Recherche avancée" / "Tous les résultats") appears once there's any
+  non-empty query, regardless of whether suggestions were found — so a
+  zero-result query still leaves the panel and footer usable instead of
+  the whole dropdown disappearing. `open` is now a pure visibility flag
+  (focus/outside-click/Escape/submit) decoupled from whether suggestions
+  happen to exist, whereas the first pass conflated the two.
+- "Recherche avancée" (the footer link) navigates to today's `/recherche`
+  blank, not carrying the current query — deliberate: `/recherche` is
+  where Unit B's combinable-groups builder will eventually live, so this
+  link becomes the real advanced-search entry point once that ships,
+  with no further change needed here. "Tous les résultats" runs the
+  typed query normally (same as pressing Enter/the main button).
+- On submit, non-default choices are appended to the `/recherche` URL as
+  `champ`/`exact` params (e.g. `?q=...&champ=title&exact=1`); defaults
+  (all fields, non-exact) add nothing, keeping existing plain-`q` links
+  unchanged.
+- `app/(public)/recherche/page.tsx` reads both params: `exact=1` wraps the
+  query in double quotes (Meilisearch's own phrase-match syntax) before
+  calling `.search()`; `champ` is passed as `attributesToSearchOn` **only
+  after validating it against a `SEARCH_SCOPES` whitelist** — an
+  unrecognized value falls back to searching all fields rather than being
+  forwarded to Meilisearch unchecked, since it's user-controlled URL
+  input. `SEARCH_SCOPES` is a small duplicate of `hero-search.tsx`'s
+  `SCOPE_OPTIONS` labels rather than a cross-import, since that file is
+  `"use client"` and this stays a server component — not worth a shared
+  module for four label strings.
+- Both params are threaded through `pageUrl()` (pagination) and the sort
+  links so paging/sorting doesn't silently drop the active scope/exact
+  choice; new chips ("Dans : Titre", "Expression exacte") show alongside
+  the existing type/ministry/era/topic chips when active, and "Effacer
+  les filtres" now also appears (and clears) when only these two are set,
+  not just the original four.
+- **Found, not fixed** (pre-existing, unrelated to this change): the sort
+  links' `sp` builder was already missing `topicFilter` before this edit
+  (clicking a sort option silently dropped an active topic filter) — left
+  as-is since it predates this session's change and wasn't the reported
+  bug; worth a follow-up if the user cares.
+- `npx tsc --noEmit` and `npm run build` both pass clean. Not yet manually
+  verified in a running browser (assistant doesn't start the dev server).
+
 ### UI Redesign — Token Migration, `/couverture` + `/api` docs (2026-09-07)
 
 Sixth and final increment of the "UI redesign remaining scope" backlog
@@ -1239,22 +1356,39 @@ In no particular order — pick based on what's most valuable next session:
   (2026-09-07): everything from the 2026-09-01 session onward — the
   scraper port, Payload CMS, Codes, the UI redesign, and this session's
   security fixes/Meilisearch swap — had been sitting as uncommitted
-  working-tree changes the whole time. Committed as 4 logical commits
-  (`9c60321` scraper, `2276b72` Payload/Codes, `801bc07` UI redesign +
-  docs, `9d587b0` Meilisearch/security) and pushed to `origin/main`
-  (`Libramo/lexdj` on GitHub). Two files in the working tree got assigned
-  to a commit by their more-recent/dominant concern rather than split by
-  hunk (`app/(public)/journal/page.tsx` → the security commit,
-  `app/(public)/recherche/page.tsx` → the Meilisearch commit) — both
-  files also carry earlier UI-redesign changes that are now bundled into
-  those commits rather than the redesign commit; not incorrect, just
-  worth knowing if `git blame`/`git log -p` on either file looks like it
-  mixes concerns. `scraper/data/checkpoint.json` (scrape-progress runtime
-  state, not source) was caught before committing and added to
-  `.gitignore` instead (`/scraper/data/`). One untracked file,
-  `draft.txt`, was deliberately left alone — not created by the
-  assistant, unknown purpose/content, not committed; ask the user what it
-  is before ever touching it.
+  working-tree changes the whole time. Committed as 4 logical commits and
+  pushed to `origin/main` (`Libramo/lexdj` on GitHub). Two files in the
+  working tree got assigned to a commit by their more-recent/dominant
+  concern rather than split by hunk (`app/(public)/journal/page.tsx` →
+  the security commit, `app/(public)/recherche/page.tsx` → the
+  Meilisearch commit) — both files also carry earlier UI-redesign
+  changes that are now bundled into those commits rather than the
+  redesign commit; not incorrect, just worth knowing if `git blame`/
+  `git log -p` on either file looks like it mixes concerns.
+  `scraper/data/checkpoint.json` (scrape-progress runtime state, not
+  source) was caught before committing and added to `.gitignore` instead
+  (`/scraper/data/`). One untracked file, `draft.txt`, was deliberately
+  left alone — not created by the assistant, unknown purpose/content,
+  not committed; ask the user what it is before ever touching it.
+- **Those first 4 commits accidentally included a `Co-Authored-By:
+  Claude Sonnet 5 <noreply@anthropic.com>` trailer** — a default the
+  assistant's standard git-commit instructions apply automatically,
+  followed here without flagging it as optional first. This made Claude
+  show up as a listed GitHub contributor, which the user explicitly does
+  not want, ever, on this or any project. Fixed same session: rewrote
+  all 4 commit messages (`git filter-branch --msg-filter`, over the
+  range `4fa2f9f..HEAD`), verified the rewritten tree was byte-identical
+  to what was already on `origin/main` (`git diff origin/main HEAD`
+  returned nothing) before force-pushing (`git push --force-with-lease`).
+  **This rewrite changed all 4 commit hashes** — the final, correct
+  hashes (referenced everywhere else in this file) are `60d1ae2`
+  (scraper), `0c6951f` (Payload/Codes), `8d048e2` (UI redesign + docs),
+  `2e9ac44` (Meilisearch/security); the originals (`9c60321`, `2276b72`,
+  `801bc07`, `9d587b0`) no longer exist on `origin/main` and should never
+  be referenced as current. A 5th commit, `c49c7be` (the cron deploy
+  scripts), was made correctly from the start with no trailer. See the
+  `feedback_no_coauthor_trailer` memory — applies to every future
+  commit, any project, permanently.
 - The dev server and Docker were never started by the assistant this
   session either (same standing instruction) — the Meilisearch swap was
   verified via `npx tsc --noEmit`, grep sweeps, and reading the installed
@@ -1266,3 +1400,11 @@ In no particular order — pick based on what's most valuable next session:
   live functional verification (does search return correct results
   against real production data) has **not** happened yet — see Current
   Goal.
+- **VPS already runs Prometheus + Grafana + cAdvisor** (learned
+  2026-09-07, alongside this app's own containers and other apps on the
+  same VPS) — covers container resource usage only (CPU/memory/disk),
+  not HTTP traffic or visitor analytics. Not part of this repo's
+  `docker-compose.yml` — a separate, pre-existing monitoring stack on
+  the host. Relevant context for the Umami decision in Next Up: don't
+  assume "no monitoring exists" on this VPS, and don't duplicate
+  resource-usage monitoring that's already covered.

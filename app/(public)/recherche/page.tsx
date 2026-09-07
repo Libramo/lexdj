@@ -17,8 +17,23 @@ interface Props {
     era?: string;
     sort?: string;
     topic?: string;
+    champ?: string;
+    exact?: string;
   }>;
 }
+
+// Mirrors hero-search.tsx's SCOPE_OPTIONS — kept as a separate constant
+// (rather than imported from that "use client" component) since it's a
+// tiny, stable list and this stays a server component. Values must be
+// real entries in lib/meilisearch-schema.ts's searchableAttributes; an
+// unrecognized ?champ= value falls back to searching all fields rather
+// than being passed through to Meilisearch unchecked.
+const SEARCH_SCOPES: Record<string, string> = {
+  title: "Titre",
+  full_text: "Texte intégral",
+  ministry: "Ministère",
+  reference_number: "Référence",
+};
 
 function quote(value: string): string {
   return JSON.stringify(value);
@@ -87,6 +102,8 @@ export default async function RecherchePage({ searchParams }: Props) {
   const eraFilter = params.era ?? "";
   const sort = params.sort ?? "relevance";
   const topicFilter = params.topic ?? "";
+  const champFilter = SEARCH_SCOPES[params.champ ?? ""] ? params.champ! : "";
+  const exactMatch = params.exact === "1";
 
   const hasFilters = !!(
     typeFilter ||
@@ -143,12 +160,19 @@ export default async function RecherchePage({ searchParams }: Props) {
 
   // Only fetch results when there is a query or active filter
   if (q || hasFilters) {
-    const result = await meiliClient.index(LAWS_INDEX).search(q, {
+    // Exact-phrase mode wraps the query in quotes — Meilisearch's own
+    // phrase-match syntax — rather than a custom param; champFilter is
+    // already validated against SEARCH_SCOPES above, so it's safe to pass
+    // straight through as attributesToSearchOn.
+    const searchQuery = exactMatch && q ? `"${q}"` : q;
+
+    const result = await meiliClient.index(LAWS_INDEX).search(searchQuery, {
       filter: filterBy || undefined,
       sort: sortArr,
       page,
       hitsPerPage: PAGE_SIZE,
       matchingStrategy: "all",
+      attributesToSearchOn: champFilter ? [champFilter] : undefined,
       attributesToHighlight: ["intro_text"],
       attributesToCrop: ["intro_text"],
       cropLength: 30,
@@ -193,6 +217,8 @@ export default async function RecherchePage({ searchParams }: Props) {
     if (eraFilter) sp.set("era", eraFilter);
     if (sort !== "relevance") sp.set("sort", sort);
     if (topicFilter) sp.set("topic", topicFilter);
+    if (champFilter) sp.set("champ", champFilter);
+    if (exactMatch) sp.set("exact", "1");
     return `/recherche?${sp.toString()}`;
   }
 
@@ -206,7 +232,7 @@ export default async function RecherchePage({ searchParams }: Props) {
           </h1>
           <SearchInput initialQ={q} />
 
-          {hasFilters && (
+          {(hasFilters || champFilter || exactMatch) && (
             <div className="flex flex-wrap gap-2 mt-3">
               {typeFilter && (
                 <span className="inline-flex items-center gap-1.5 text-xs bg-primary text-primary-foreground rounded-sm px-3 py-1">
@@ -230,6 +256,16 @@ export default async function RecherchePage({ searchParams }: Props) {
               {topicFilter && (
                 <span className="inline-flex items-center gap-1.5 text-xs bg-primary text-primary-foreground rounded-sm px-3 py-1">
                   {topicFilter}
+                </span>
+              )}
+              {champFilter && (
+                <span className="inline-flex items-center gap-1.5 text-xs bg-primary/10 text-primary rounded-sm px-3 py-1">
+                  Dans : {SEARCH_SCOPES[champFilter]}
+                </span>
+              )}
+              {exactMatch && (
+                <span className="inline-flex items-center gap-1.5 text-xs bg-primary/10 text-primary rounded-sm px-3 py-1">
+                  Expression exacte
                 </span>
               )}
               <Link
@@ -281,6 +317,8 @@ export default async function RecherchePage({ searchParams }: Props) {
                     if (ministryFilter) sp.set("ministry", ministryFilter);
                     if (eraFilter) sp.set("era", eraFilter);
                     if (s.value !== "relevance") sp.set("sort", s.value);
+                    if (champFilter) sp.set("champ", champFilter);
+                    if (exactMatch) sp.set("exact", "1");
                     return (
                       <Link
                         key={s.value}
