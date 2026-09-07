@@ -20,45 +20,48 @@ export async function GET(req: NextRequest) {
   const era = searchParams.get("era") ?? "";
   const q = searchParams.get("q")?.trim() ?? "";
 
-  const conditions: string[] = [
-    "issue_number IS NOT NULL",
-    "issue_date IS NOT NULL",
-    "id NOT IN (SELECT id FROM duplicate_laws)",
+  // Every value below is bound as a real query parameter via Drizzle's
+  // tagged `sql` template (never sql.raw + string interpolation), per
+  // architecture.md Invariant 7. This previously used sql.raw() with
+  // manual `.replace(/'/g, "''")` escaping, a known gap (see
+  // code-standards.md) rather than true parameterization.
+  const conditions: ReturnType<typeof sql>[] = [
+    sql`issue_number IS NOT NULL`,
+    sql`issue_date IS NOT NULL`,
+    sql`id NOT IN (SELECT id FROM duplicate_laws)`,
   ];
 
-  if (era === "colonial") conditions.push(`issue_date < '1977-06-27'`);
+  if (era === "colonial") conditions.push(sql`issue_date < '1977-06-27'`);
   if (era === "independence")
-    conditions.push(`issue_date >= '1977-06-27' AND issue_date < '1990-01-01'`);
-  if (era === "modern") conditions.push(`issue_date >= '1990-01-01'`);
+    conditions.push(
+      sql`issue_date >= '1977-06-27' AND issue_date < '1990-01-01'`,
+    );
+  if (era === "modern") conditions.push(sql`issue_date >= '1990-01-01'`);
   if (q)
     conditions.push(
-      `(issue_number ILIKE '%${q.replace(/'/g, "''")}%' OR issue_date::text ILIKE '%${q.replace(/'/g, "''")}%')`,
+      sql`(issue_number ILIKE ${`%${q}%`} OR issue_date::text ILIKE ${`%${q}%`})`,
     );
 
-  const where = `WHERE ${conditions.join(" AND ")}`;
+  const where = sql.join(conditions, sql` AND `);
 
   try {
     const [rows, totalResult] = await Promise.all([
-      db.execute(
-        sql.raw(`
+      db.execute(sql`
         SELECT
           issue_number,
           issue_date,
           COUNT(*)::int AS text_count
         FROM laws
-        ${where}
+        WHERE ${where}
         GROUP BY issue_number, issue_date
         ORDER BY issue_date DESC NULLS LAST
         LIMIT ${limit} OFFSET ${offset}
       `),
-      ),
-      db.execute(
-        sql.raw(`
+      db.execute(sql`
         SELECT COUNT(DISTINCT issue_number)::int as total
         FROM laws
-        ${where}
+        WHERE ${where}
       `),
-      ),
     ]);
 
     const total = Number((totalResult.rows[0] as any).total);

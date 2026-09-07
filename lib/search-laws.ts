@@ -1,4 +1,5 @@
-import { typesenseClient } from "./typesense";
+import { meiliClient } from "./meilisearch";
+import { LAWS_INDEX } from "./meilisearch-schema";
 
 export type LawResult = {
   id: string;
@@ -12,24 +13,21 @@ export type LawResult = {
 };
 
 export async function searchLaws(query: string): Promise<LawResult[]> {
-  const results = await typesenseClient.collections("laws").documents().search({
-    q: query,
-    query_by: "title,full_text,reference_number,ministry",
-    per_page: 3,
-    snippet_threshold: 20,
+  const results = await meiliClient.index(LAWS_INDEX).search(query, {
+    limit: 3,
+    attributesToCrop: ["full_text"],
+    cropLength: 20,
   });
 
-  return (results.hits ?? []).map((hit) => {
-    const doc = hit.document as LawResult;
-    return {
-      id: doc.id,
-      title: doc.title,
-      reference_number: doc.reference_number,
-      doc_type: doc.doc_type,
-      ministry: doc.ministry,
-      publication_date: doc.publication_date,
-      full_text: doc.full_text?.slice(0, 1500) ?? "", // cap to avoid huge prompts
-      source_url: doc.source_url,
-    };
-  });
+  return (results.hits ?? []).map((hit: any) => ({
+    id: hit.id,
+    title: hit.title,
+    reference_number: hit.reference_number,
+    doc_type: hit.doc_type,
+    ministry: hit.ministry,
+    publication_date: hit.publication_date,
+    // cropped by Meilisearch; fall back to a hard slice as a safety cap
+    full_text: hit._formatted?.full_text ?? hit.full_text?.slice(0, 1500) ?? "",
+    source_url: hit.source_url,
+  }));
 }

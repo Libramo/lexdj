@@ -1,5 +1,5 @@
-import { typesenseClient } from "@/lib/typesense";
-import { LAWS_COLLECTION } from "@/lib/typesense-schema";
+import { meiliClient } from "@/lib/meilisearch";
+import { LAWS_INDEX } from "@/lib/meilisearch-schema";
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { SearchInput } from "@/components/public/search-input";
@@ -20,16 +20,31 @@ interface Props {
   }>;
 }
 
-// ── Era filter mapping — Typesense filter syntax ──────────────────────────────
+function quote(value: string): string {
+  return JSON.stringify(value);
+}
+
+// publication_date_ts (YYYYMMDD as an integer) is what these ranges filter
+// on — Meilisearch's comparison operators only work on numeric attributes,
+// not the display-only publication_date string (see lib/meilisearch-schema.ts).
 const ERA_FILTERS: Record<string, string> = {
-  colonial: "publication_date:<1977-06-27",
-  independence: "publication_date:>=1977-06-27 && publication_date:<1990-01-01",
-  modern: "publication_date:>=1990-01-01",
+  colonial: "publication_date_ts < 19770627",
+  independence:
+    "publication_date_ts >= 19770627 AND publication_date_ts < 19900101",
+  modern: "publication_date_ts >= 19900101",
 };
 
-// ── Highlight rendering — Typesense wraps matches in <mark> tags ──────────────
+// Loi (the most common/consequential type) gets the brand tint; every other
+// type shares one neutral tone — mirrors hero-search.tsx's DOC_TYPE_COLORS.
+const DOC_TYPE_COLORS: Record<string, string> = {
+  Loi: "bg-primary/10 text-primary",
+};
+const DEFAULT_DOC_TYPE_COLOR = "bg-muted text-muted-foreground";
+
+// ── Highlight rendering — Meilisearch wraps matches in <mark> tags ────────────
 function ExcerptHighlight({ text }: { text: string }) {
-  // Typesense uses <mark> tags for highlights — render them safely
+  // highlightPreTag/highlightPostTag are set to <mark> on the search call —
+  // render the resulting HTML safely
   return (
     <span
       dangerouslySetInnerHTML={{ __html: text }}
@@ -80,23 +95,26 @@ export default async function RecherchePage({ searchParams }: Props) {
     topicFilter
   );
 
-  // ── Build Typesense filter_by ─────────────────────────────────────────────
+  // ── Build Meilisearch filter expression ───────────────────────────────────
   const filters: string[] = [];
-  if (typeFilter) filters.push(`doc_type:=${typeFilter}`);
-  if (ministryFilter) filters.push(`ministry_normalized:=${ministryFilter}`);
+  if (typeFilter) filters.push(`doc_type = ${quote(typeFilter)}`);
+  if (ministryFilter)
+    filters.push(`ministry_normalized = ${quote(ministryFilter)}`);
   if (eraFilter && ERA_FILTERS[eraFilter]) filters.push(ERA_FILTERS[eraFilter]);
-  if (topicFilter) filters.push(`topics:=${topicFilter}`);
-  const filterBy = filters.join(" && ");
+  if (topicFilter) filters.push(`topics = ${quote(topicFilter)}`);
+  const filterBy = filters.join(" AND ");
 
   // ── Sort ──────────────────────────────────────────────────────────────────
-  const sortBy =
+  // Meilisearch's default ranking rules already place `sort` after
+  // words/typo/proximity/attribute and before exactness, so pub_year:desc
+  // alongside a text query gives "relevance first, date tiebreak" for free —
+  // no separate relevance-vs-browse case needed like Typesense required.
+  const sortArr =
     sort === "date_desc"
-      ? "pub_year:desc"
+      ? ["pub_year:desc"]
       : sort === "date_asc"
-        ? "pub_year:asc"
-        : q
-          ? "_text_match:desc,pub_year:desc"
-          : "pub_year:desc";
+        ? ["pub_year:asc"]
+        : ["pub_year:desc"];
 
   // ── Search ────────────────────────────────────────────────────────────────
   let rows: any[] = [];
@@ -106,69 +124,63 @@ export default async function RecherchePage({ searchParams }: Props) {
   let ministries: { value: string; count: number }[] = [];
 
   // Always fetch facets so the filter sidebar is populated even on empty state
-  // per_page=0 means we get facet counts without fetching any documents
-  const facetResult = await typesenseClient
-    .collections(LAWS_COLLECTION)
-    .documents()
-    .search({
-      q: "*",
-      query_by: "title",
-      per_page: 0,
-      facet_by: "doc_type,ministry_normalized",
-      max_facet_values: 60,
-      filter_by: filterBy || undefined,
-    } as any);
+  // limit=0 means we get facet counts without fetching any documents
+  const facetResult = await meiliClient.index(LAWS_INDEX).search("", {
+    limit: 0,
+    facets: ["doc_type", "ministry_normalized", "topics"],
+    filter: filterBy || undefined,
+  } as any);
 
-  docTypes =
-    (facetResult as any).facet_counts
-      ?.find((f: any) => f.field_name === "doc_type")
-      ?.counts.map((c: any) => ({ value: c.value, count: c.count })) ?? [];
+  const facetDistribution = (facetResult as any).facetDistribution ?? {};
 
-  ministries =
-    facetResult.facet_counts
-      ?.find((f: any) => f.field_name === "ministry_normalized")
-      ?.counts.map((c: any) => ({ value: c.value, count: c.count })) ?? [];
+  docTypes = Object.entries(facetDistribution.doc_type ?? {}).map(
+    ([value, count]) => ({ value, count: count as number }),
+  );
+
+  ministries = Object.entries(facetDistribution.ministry_normalized ?? {}).map(
+    ([value, count]) => ({ value, count: count as number }),
+  );
 
   // Only fetch results when there is a query or active filter
   if (q || hasFilters) {
-    const result = await typesenseClient
-      .collections(LAWS_COLLECTION)
-      .documents()
-      .search({
-        q: q || "*",
-        query_by: "title,reference_number,intro_text,full_text",
-        query_by_weights: "4,3,2,1",
-        filter_by: filterBy || undefined,
-        sort_by: sortBy,
-        page,
-        per_page: PAGE_SIZE,
-        num_typos: 1,
-        prefix: false,
-        highlight_fields: "title,intro_text",
-        highlight_start_tag: "<mark>",
-        highlight_end_tag: "</mark>",
-        snippet_threshold: 30,
-        include_fields:
-          "id,title,doc_type,ministry,publication_date,reference_number,issue_number,intro_text",
-      } as any);
+    const result = await meiliClient.index(LAWS_INDEX).search(q, {
+      filter: filterBy || undefined,
+      sort: sortArr,
+      page,
+      hitsPerPage: PAGE_SIZE,
+      matchingStrategy: "all",
+      attributesToHighlight: ["intro_text"],
+      attributesToCrop: ["intro_text"],
+      cropLength: 30,
+      highlightPreTag: "<mark>",
+      highlightPostTag: "</mark>",
+      attributesToRetrieve: [
+        "id",
+        "title",
+        "doc_type",
+        "ministry",
+        "publication_date",
+        "reference_number",
+        "issue_number",
+        "intro_text",
+      ],
+    } as any);
 
-    total = (result as any).found;
-    totalPages = Math.ceil(total / PAGE_SIZE);
+    total = (result as any).totalHits ?? 0;
+    totalPages = (result as any).totalPages ?? Math.ceil(total / PAGE_SIZE);
 
     rows =
-      (result as any).hits?.map((hit: any) => ({
-        id: parseInt(hit.document.id),
-        title: hit.document.title ?? "",
-        doc_type: hit.document.doc_type ?? null,
-        ministry: hit.document.ministry ?? null,
-        publication_date: hit.document.publication_date ?? null,
-        reference_number: hit.document.reference_number ?? null,
-        issue_number: hit.document.issue_number ?? null,
-        intro_text: hit.document.intro_text ?? null,
+      result.hits?.map((hit: any) => ({
+        id: parseInt(hit.id),
+        title: hit.title ?? "",
+        doc_type: hit.doc_type ?? null,
+        ministry: hit.ministry ?? null,
+        publication_date: hit.publication_date ?? null,
+        reference_number: hit.reference_number ?? null,
+        issue_number: hit.issue_number ?? null,
+        intro_text: hit.intro_text ?? null,
         excerpt:
-          hit.highlights?.find((h: any) => h.field === "intro_text")?.snippet ??
-          hit.document.intro_text?.slice(0, 200) ??
-          "",
+          hit._formatted?.intro_text ?? hit.intro_text?.slice(0, 200) ?? "",
       })) ?? [];
   }
 
@@ -185,11 +197,11 @@ export default async function RecherchePage({ searchParams }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
+    <div className="min-h-screen bg-background">
       {/* ── SEARCH HEADER ── */}
-      <div className="bg-white border-b border-black/6">
+      <div className="bg-background border-b border-border">
         <div className="max-w-4xl mx-auto px-8 py-8">
-          <h1 className="font-['Libre_Baskerville'] text-2xl font-normal text-[#111] mb-5">
+          <h1 className="font-sans uppercase font-bold text-foreground text-2xl tracking-tight mb-5">
             Recherche plein texte
           </h1>
           <SearchInput initialQ={q} />
@@ -197,17 +209,17 @@ export default async function RecherchePage({ searchParams }: Props) {
           {hasFilters && (
             <div className="flex flex-wrap gap-2 mt-3">
               {typeFilter && (
-                <span className="inline-flex items-center gap-1.5 text-xs bg-[#1A3A5C] text-white rounded-full px-3 py-1">
+                <span className="inline-flex items-center gap-1.5 text-xs bg-primary text-primary-foreground rounded-sm px-3 py-1">
                   {typeFilter}
                 </span>
               )}
               {ministryFilter && (
-                <span className="inline-flex items-center gap-1.5 text-xs bg-[#1A3A5C] text-white rounded-full px-3 py-1">
+                <span className="inline-flex items-center gap-1.5 text-xs bg-primary text-primary-foreground rounded-sm px-3 py-1">
                   {toTitleCase(ministryFilter)}
                 </span>
               )}
               {eraFilter && (
-                <span className="inline-flex items-center gap-1.5 text-xs bg-[#1A3A5C] text-white rounded-full px-3 py-1">
+                <span className="inline-flex items-center gap-1.5 text-xs bg-primary text-primary-foreground rounded-sm px-3 py-1">
                   {eraFilter === "colonial"
                     ? "Période coloniale"
                     : eraFilter === "independence"
@@ -216,13 +228,13 @@ export default async function RecherchePage({ searchParams }: Props) {
                 </span>
               )}
               {topicFilter && (
-                <span className="inline-flex items-center gap-1.5 text-xs bg-[#1A3A5C] text-white rounded-full px-3 py-1">
+                <span className="inline-flex items-center gap-1.5 text-xs bg-primary text-primary-foreground rounded-sm px-3 py-1">
                   {topicFilter}
                 </span>
               )}
               <Link
                 href={`/recherche?q=${encodeURIComponent(q)}`}
-                className="text-xs text-red-500 hover:underline no-underline self-center"
+                className="text-xs text-destructive hover:underline no-underline self-center"
               >
                 Effacer les filtres
               </Link>
@@ -235,12 +247,12 @@ export default async function RecherchePage({ searchParams }: Props) {
         {/* ── RESULTS HEADER ── */}
         {(q || hasFilters) && (
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-[#888]">
+            <p className="text-sm text-muted-foreground">
               {total === 0 ? (
                 "Aucun résultat"
               ) : (
                 <>
-                  <span className="font-semibold text-[#111]">
+                  <span className="font-semibold text-foreground">
                     {total.toLocaleString("fr-FR")}
                   </span>{" "}
                   résultat{total > 1 ? "s" : ""}
@@ -248,7 +260,7 @@ export default async function RecherchePage({ searchParams }: Props) {
                     <>
                       {" "}
                       pour{" "}
-                      <span className="font-semibold text-[#111]">« {q} »</span>
+                      <span className="font-semibold text-foreground">« {q} »</span>
                     </>
                   )}
                 </>
@@ -256,7 +268,7 @@ export default async function RecherchePage({ searchParams }: Props) {
             </p>
             <div className="flex items-center gap-3">
               {q && (
-                <div className="flex items-center gap-1.5 text-xs text-[#888]">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span>Trier :</span>
                   {[
                     { value: "relevance", label: "Pertinence" },
@@ -273,10 +285,10 @@ export default async function RecherchePage({ searchParams }: Props) {
                       <Link
                         key={s.value}
                         href={`/recherche?${sp.toString()}`}
-                        className={`px-2.5 py-1 rounded-md transition-colors no-underline ${
+                        className={`px-2.5 py-1 rounded-sm transition-colors no-underline ${
                           sort === s.value
-                            ? "bg-[#1A3A5C] text-white font-medium"
-                            : "text-[#888] hover:bg-black/5"
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         {s.label}
@@ -289,7 +301,7 @@ export default async function RecherchePage({ searchParams }: Props) {
           </div>
         )}
 
-        {/* ── FILTERS — powered by Typesense facets ── */}
+        {/* ── FILTERS — powered by Meilisearch facets ── */}
         <SearchFilters
           docTypes={docTypes}
           ministries={ministries}
@@ -304,13 +316,13 @@ export default async function RecherchePage({ searchParams }: Props) {
         {/* ── EMPTY STATE ── */}
         {!q && !hasFilters && (
           <div className="text-center py-20">
-            <div className="w-16 h-16 rounded-2xl bg-[#EEF3F8] flex items-center justify-center mx-auto mb-5">
-              <FileText size={24} className="text-[#1A3A5C]" />
+            <div className="w-16 h-16 rounded-sm bg-primary/10 flex items-center justify-center mx-auto mb-5">
+              <FileText size={24} className="text-primary" />
             </div>
-            <p className="text-[#888] text-sm mb-1 font-medium">
+            <p className="text-muted-foreground text-sm mb-1 font-medium">
               Recherchez dans 54 000+ textes officiels
             </p>
-            <p className="text-[#AAA] text-xs mb-8">
+            <p className="text-muted-foreground text-xs mb-8">
               Décrets, arrêtés, lois, ordonnances, circulaires — depuis 1904
             </p>
             <div className="flex flex-wrap justify-center gap-2">
@@ -325,7 +337,7 @@ export default async function RecherchePage({ searchParams }: Props) {
                 <Link
                   key={s}
                   href={`/recherche?q=${encodeURIComponent(s)}`}
-                  className="text-xs text-[#1A3A5C] bg-[#EEF3F8] border border-[#1A3A5C]/10 rounded-full px-3 py-1.5 hover:bg-[#1A3A5C] hover:text-white transition-colors no-underline"
+                  className="text-xs text-primary bg-primary/10 border border-primary/10 rounded-sm px-3 py-1.5 hover:bg-primary hover:text-primary-foreground transition-colors no-underline"
                 >
                   {s}
                 </Link>
@@ -336,11 +348,11 @@ export default async function RecherchePage({ searchParams }: Props) {
 
         {/* ── NO RESULTS ── */}
         {(q || hasFilters) && rows.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-2xl border border-black/6">
-            <p className="text-sm text-[#888] mb-1">
+          <div className="text-center py-16 bg-background rounded-sm border border-border">
+            <p className="text-sm text-muted-foreground mb-1">
               Aucun texte ne correspond à votre recherche
             </p>
-            <p className="text-xs text-[#AAA]">
+            <p className="text-xs text-muted-foreground">
               Essayez d'autres mots-clés ou élargissez les filtres
             </p>
           </div>
@@ -353,27 +365,31 @@ export default async function RecherchePage({ searchParams }: Props) {
               <Link
                 key={law.id}
                 href={`/textes/${law.id}`}
-                className="group block bg-white border border-black/[0.07] rounded-xl px-5 py-4 hover:border-[#1A3A5C]/25 hover:shadow-sm transition-all no-underline"
+                className="group block bg-background border border-border rounded-sm px-5 py-4 hover:border-primary/40 transition-colors no-underline"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     {/* Badges */}
                     <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className="text-[10px] text-[#CCC] tabular-nums font-mono w-5">
+                      <span className="text-[10px] text-muted-foreground tabular-nums font-mono w-5">
                         {(page - 1) * PAGE_SIZE + i + 1}.
                       </span>
                       {law.doc_type && (
-                        <span className="text-[11px] font-medium bg-[#EEF3F8] text-[#1A3A5C] rounded px-2 py-0.5">
+                        <span
+                          className={`text-[11px] font-medium rounded-sm px-2 py-0.5 ${
+                            DOC_TYPE_COLORS[law.doc_type] ?? DEFAULT_DOC_TYPE_COLOR
+                          }`}
+                        >
                           {law.doc_type}
                         </span>
                       )}
                       {law.issue_number && (
-                        <span className="text-[11px] text-[#AAA] bg-black/3 rounded px-2 py-0.5">
+                        <span className="text-[11px] text-muted-foreground bg-muted rounded-sm px-2 py-0.5">
                           N° {law.issue_number}
                         </span>
                       )}
                       {law.publication_date && (
-                        <span className="text-[11px] text-[#AAA]">
+                        <span className="text-[11px] text-muted-foreground">
                           {law.publication_date < "1977-06-27"
                             ? "🏛 Période coloniale"
                             : law.publication_date < "1990-01-01"
@@ -384,13 +400,13 @@ export default async function RecherchePage({ searchParams }: Props) {
                     </div>
 
                     {/* Title */}
-                    <p className="text-sm font-semibold text-[#111] leading-snug group-hover:text-[#1A3A5C] transition-colors mb-1.5">
+                    <p className="text-sm font-semibold text-foreground leading-snug group-hover:text-primary transition-colors mb-1.5">
                       <TitleHighlight text={law.title ?? "Sans titre"} q={q} />
                     </p>
 
-                    {/* Excerpt with Typesense highlights */}
+                    {/* Excerpt with Meilisearch highlights */}
                     {law.excerpt && (
-                      <p className="text-xs text-[#888] leading-relaxed line-clamp-3 font-light mb-2">
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 font-light mb-2">
                         <ExcerptHighlight text={law.excerpt} />
                       </p>
                     )}
@@ -398,12 +414,12 @@ export default async function RecherchePage({ searchParams }: Props) {
                     {/* Meta */}
                     <div className="flex items-center gap-3 flex-wrap">
                       {law.ministry && (
-                        <span className="text-[11px] text-[#AAA]">
+                        <span className="text-[11px] text-muted-foreground">
                           {toTitleCase(law.ministry)}
                         </span>
                       )}
                       {law.reference_number && (
-                        <span className="text-[11px] font-mono text-[#CCC]">
+                        <span className="text-[11px] font-mono text-muted-foreground">
                           {law.reference_number}
                         </span>
                       )}
@@ -413,7 +429,7 @@ export default async function RecherchePage({ searchParams }: Props) {
                   {/* Date */}
                   <div className="shrink-0 flex flex-col items-end gap-1 pt-1">
                     {law.publication_date && (
-                      <span className="text-xs text-[#AAA] tabular-nums whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
                         {law.publication_date}
                       </span>
                     )}
@@ -427,7 +443,7 @@ export default async function RecherchePage({ searchParams }: Props) {
         {/* ── PAGINATION ── */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-8">
-            <span className="text-sm text-[#888]">
+            <span className="text-sm text-muted-foreground">
               {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)}{" "}
               sur {total.toLocaleString("fr-FR")}
             </span>
@@ -435,7 +451,7 @@ export default async function RecherchePage({ searchParams }: Props) {
               {page > 1 && (
                 <Link
                   href={pageUrl(page - 1)}
-                  className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                  className="px-4 py-2 text-sm border border-border rounded-sm hover:bg-muted transition-colors no-underline text-foreground"
                 >
                   ← Précédent
                 </Link>
@@ -443,7 +459,7 @@ export default async function RecherchePage({ searchParams }: Props) {
               {page < totalPages && (
                 <Link
                   href={pageUrl(page + 1)}
-                  className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                  className="px-4 py-2 text-sm border border-border rounded-sm hover:bg-muted transition-colors no-underline text-foreground"
                 >
                   Suivant →
                 </Link>

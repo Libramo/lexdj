@@ -24,24 +24,28 @@ export async function GET(req: NextRequest) {
   const ministry = searchParams.get("ministry") ?? "";
   const era = searchParams.get("era") ?? "";
 
-  // Build WHERE
-  const conditions: string[] = ["id NOT IN (SELECT id FROM duplicate_laws)"];
-  if (type) conditions.push(`doc_type = '${type.replace(/'/g, "''")}'`);
-  if (ministry) conditions.push(`ministry = '${ministry.replace(/'/g, "''")}'`);
-  if (era === "colonial") conditions.push(`publication_date < '1977-06-27'`);
+  // Build WHERE — every value below is bound as a real query parameter via
+  // Drizzle's tagged `sql` template (never sql.raw + string interpolation),
+  // per architecture.md Invariant 7. This previously used sql.raw() with
+  // manual `.replace(/'/g, "''")` escaping, a known gap (see
+  // code-standards.md) rather than true parameterization.
+  const conditions: ReturnType<typeof sql>[] = [
+    sql`id NOT IN (SELECT id FROM duplicate_laws)`,
+  ];
+  if (type) conditions.push(sql`doc_type = ${type}`);
+  if (ministry) conditions.push(sql`ministry = ${ministry}`);
+  if (era === "colonial") conditions.push(sql`publication_date < '1977-06-27'`);
   if (era === "independence")
     conditions.push(
-      `publication_date >= '1977-06-27' AND publication_date < '1990-01-01'`,
+      sql`publication_date >= '1977-06-27' AND publication_date < '1990-01-01'`,
     );
-  if (era === "modern") conditions.push(`publication_date >= '1990-01-01'`);
+  if (era === "modern") conditions.push(sql`publication_date >= '1990-01-01'`);
 
-  const where =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const where = sql.join(conditions, sql` AND `);
 
   try {
     const [rows, totalResult] = await Promise.all([
-      db.execute(
-        sql.raw(`
+      db.execute(sql`
         SELECT
           id,
           title,
@@ -54,16 +58,13 @@ export async function GET(req: NextRequest) {
           signed_by,
           source_url
         FROM laws
-        ${where}
+        WHERE ${where}
         ORDER BY publication_date DESC NULLS LAST
         LIMIT ${limit} OFFSET ${offset}
       `),
-      ),
-      db.execute(
-        sql.raw(`
-        SELECT COUNT(*)::int as total FROM laws ${where}
+      db.execute(sql`
+        SELECT COUNT(*)::int as total FROM laws WHERE ${where}
       `),
-      ),
     ]);
 
     const total = Number((totalResult.rows[0] as any).total);

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json();
 
-    // get the last user message to search Typesense
+    // get the last user message to search Meilisearch
     const lastUserMessage =
       [...messages].reverse().find((m: { role: string }) => m.role === "user")
         ?.content ?? "";

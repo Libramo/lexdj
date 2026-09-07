@@ -1,18 +1,26 @@
 // app/api/v1/search/route.ts
 import { NextRequest } from "next/server";
-import { typesenseClient } from "@/lib/typesense";
-import { LAWS_COLLECTION } from "@/lib/typesense-schema";
+import { meiliClient } from "@/lib/meilisearch";
+import { LAWS_INDEX } from "@/lib/meilisearch-schema";
 import { corsJson, handleOptions } from "@/lib/cors";
 
 export function OPTIONS() {
   return handleOptions();
 }
 
+// publication_date_ts (YYYYMMDD as an integer) is what these ranges
+// actually filter on — Meilisearch's comparison operators only work on
+// numeric attributes, not the display-only publication_date string.
 const ERA_FILTERS: Record<string, string> = {
-  colonial: "publication_date:<1977-06-27",
-  independence: "publication_date:>=1977-06-27 && publication_date:<1990-01-01",
-  modern: "publication_date:>=1990-01-01",
+  colonial: "publication_date_ts < 19770627",
+  independence:
+    "publication_date_ts >= 19770627 AND publication_date_ts < 19900101",
+  modern: "publication_date_ts >= 19900101",
 };
+
+function quote(value: string): string {
+  return JSON.stringify(value);
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -35,52 +43,58 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Build Typesense filter_by string
+  // Build Meilisearch filter expression
   const filters: string[] = [];
-  if (typeFilter) filters.push(`doc_type:=${typeFilter}`);
-  if (ministryFilter) filters.push(`ministry_normalized:=${ministryFilter}`);
+  if (typeFilter) filters.push(`doc_type = ${quote(typeFilter)}`);
+  if (ministryFilter)
+    filters.push(`ministry_normalized = ${quote(ministryFilter)}`);
   if (eraFilter && ERA_FILTERS[eraFilter]) filters.push(ERA_FILTERS[eraFilter]);
-  const filterBy = filters.join(" && ");
+  const filterBy = filters.join(" AND ");
 
-  // Sort
-  const sortBy =
+  // Sort — Meilisearch's default ranking rules already place `sort` after
+  // words/typo/proximity/attribute and before exactness, so passing
+  // pub_year:desc alongside a text query gives "relevance first, date
+  // tiebreak" for free; no need for Typesense's separate _text_match case.
+  const sortArr =
     sort === "date_desc"
-      ? "pub_year:desc"
+      ? ["pub_year:desc"]
       : sort === "date_asc"
-        ? "pub_year:asc"
-        : q
-          ? "_text_match:desc,pub_year:desc"
-          : "pub_year:desc";
+        ? ["pub_year:asc"]
+        : ["pub_year:desc"];
 
   try {
-    const result = await typesenseClient
-      .collections(LAWS_COLLECTION)
-      .documents()
-      .search({
-        q: q || "*",
-        query_by: "title,reference_number,intro_text,full_text",
-        query_by_weights: "4,3,2,1",
-        filter_by: filterBy || undefined,
-        sort_by: sortBy,
-        page,
-        per_page: limit,
-        num_typos: 1,
-        prefix: false,
-        highlight_fields: "title,intro_text",
-        snippet_threshold: 30,
-        include_fields:
-          "id,title,doc_type,ministry,publication_date,reference_number,issue_number,intro_text",
-      });
+    const result = await meiliClient.index(LAWS_INDEX).search(q, {
+      filter: filterBy || undefined,
+      sort: sortArr,
+      page,
+      hitsPerPage: limit,
+      matchingStrategy: "all",
+      attributesToHighlight: ["intro_text"],
+      attributesToCrop: ["intro_text"],
+      cropLength: 30,
+      highlightPreTag: "<mark>",
+      highlightPostTag: "</mark>",
+      attributesToRetrieve: [
+        "id",
+        "title",
+        "doc_type",
+        "ministry",
+        "publication_date",
+        "reference_number",
+        "issue_number",
+        "intro_text",
+      ],
+    } as any);
 
-    const total = result.found;
+    const total = (result as any).totalHits ?? 0;
+    const totalPages = (result as any).totalPages ?? Math.ceil(total / limit);
+
     const data =
       result.hits?.map((hit: any) => ({
-        ...hit.document,
-        id: parseInt(hit.document.id),
+        ...hit,
+        id: parseInt(hit.id),
         excerpt:
-          hit.highlights?.find((h: any) => h.field === "intro_text")?.snippet ??
-          hit.document.intro_text?.slice(0, 200) ??
-          "",
+          hit._formatted?.intro_text ?? hit.intro_text?.slice(0, 200) ?? "",
       })) ?? [];
 
     return corsJson({
@@ -90,7 +104,7 @@ export async function GET(req: NextRequest) {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
+        pages: totalPages,
       },
     });
   } catch (err) {

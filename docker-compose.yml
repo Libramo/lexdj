@@ -11,16 +11,17 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
 
-  typesense:
-    image: typesense/typesense:27.1
+  meilisearch:
+    image: getmeili/meilisearch:v1.53.2
     restart: always
     environment:
-      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY}
-      TYPESENSE_DATA_DIR: /data
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
     volumes:
-      - typesense_data:/data
+      - meilisearch_data:/meili_data
     ports:
-      - "127.0.0.1:8108:8108"
+      - "127.0.0.1:7700:7700"
 
   nextjs:
     build: .
@@ -31,8 +32,8 @@ services:
       - .env
     depends_on:
       - postgres
-      - typesense
+      - meilisearch
 
 volumes:
   postgres_data:
-  typesense_data:
+  meilisearch_data:

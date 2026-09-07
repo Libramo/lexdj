@@ -64,40 +64,41 @@ export default async function JournalPage({ searchParams }: Props) {
   const eraFilter = params.era ?? "";
   const q = params.q?.trim() ?? "";
 
-  // console.log("whereClause:", whereClause);
-  console.log("q:", q);
-
-  const eraConditions: Record<string, string> = {
-    colonial: "issue_date < '1977-06-27'",
-    independence: "issue_date >= '1977-06-27' AND issue_date < '1990-01-01'",
-    modern: "issue_date >= '1990-01-01'",
+  // Era boundaries are fixed literals, not user input — safe as static SQL
+  // fragments. `q` below is the one user-controlled value and is bound as
+  // a parameter via the tagged `sql` template, never string-concatenated
+  // (see architecture.md Invariant 7 — this previously used sql.raw() with
+  // unescaped interpolation, a real SQL injection, fixed here).
+  const ERA_CONDITIONS: Record<string, ReturnType<typeof sql>> = {
+    colonial: sql`issue_date < '1977-06-27'`,
+    independence: sql`issue_date >= '1977-06-27' AND issue_date < '1990-01-01'`,
+    modern: sql`issue_date >= '1990-01-01'`,
   };
 
-  const qCondition = q
-    ? `AND (issue_number ILIKE '%${q}%' OR issue_date::text ILIKE '%${q}%')`
-    : "";
-  const whereClause =
-    eraFilter && eraConditions[eraFilter]
-      ? `WHERE issue_number IS NOT NULL AND ${eraConditions[eraFilter]} ${qCondition} AND id NOT IN (SELECT id FROM duplicate_laws)`
-      : `WHERE issue_number IS NOT NULL ${qCondition} AND id NOT IN (SELECT id FROM duplicate_laws)`;
+  const conditions = [
+    sql`issue_number IS NOT NULL`,
+    eraFilter && ERA_CONDITIONS[eraFilter] ? ERA_CONDITIONS[eraFilter] : undefined,
+    q
+      ? sql`(issue_number ILIKE ${`%${q}%`} OR issue_date::text ILIKE ${`%${q}%`})`
+      : undefined,
+    sql`id NOT IN (SELECT id FROM duplicate_laws)`,
+  ].filter(Boolean) as ReturnType<typeof sql>[];
 
-  const [issues, totalResult, stats] = await Promise.all([
-    db.execute(
-      sql.raw(`
+  const whereSql = sql.join(conditions, sql` AND `);
+
+  const [issuesResult, totalResult, stats] = await Promise.all([
+    db.execute(sql`
       SELECT issue_number, issue_date, COUNT(*)::int as count
       FROM laws
-      ${whereClause}
+      WHERE ${whereSql}
       GROUP BY issue_number, issue_date
       ORDER BY issue_date DESC NULLS LAST
       LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
     `),
-    ),
-    db.execute(
-      sql.raw(`
+    db.execute(sql`
       SELECT COUNT(DISTINCT issue_number)::int as total
-      FROM laws ${whereClause}
+      FROM laws WHERE ${whereSql}
     `),
-    ),
     // Era breakdown for the header
     db.execute(sql`
       SELECT
@@ -115,7 +116,7 @@ export default async function JournalPage({ searchParams }: Props) {
     `),
   ]);
 
-  const rows = issues.rows as {
+  const rows = issuesResult.rows as {
     issue_number: string;
     issue_date: string;
     count: number;
@@ -158,20 +159,26 @@ export default async function JournalPage({ searchParams }: Props) {
     return `/journal${s ? `?${s}` : ""}`;
   }
 
+  function eraFilterClass(active: boolean) {
+    return `text-xs font-medium rounded-sm px-4 py-2 transition-colors no-underline border ${
+      active
+        ? "bg-primary text-primary-foreground border-primary"
+        : "text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
+    }`;
+  }
+
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
+    <div className="min-h-screen bg-background">
       {/* ── HEADER ── */}
-      <div className="bg-[#1A3A5C] text-white">
+      <div className="bg-background border-b border-border">
         <div className="max-w-6xl mx-auto px-8 py-14">
-          <p className="text-white/50 text-xs uppercase tracking-widest font-medium mb-3">
+          <p className="text-muted-foreground text-xs uppercase tracking-widest font-medium mb-3">
             Journal Officiel · Djibouti
           </p>
-          <h1 className="font-['Libre_Baskerville'] text-4xl md:text-5xl font-normal leading-tight mb-2">
-            Numéros
-            <br />
-            <em className="text-[#9DC4E0]">archivés</em>
+          <h1 className="font-sans uppercase font-black text-4xl md:text-5xl tracking-tight leading-tight text-foreground mb-2">
+            Numéros <span className="text-muted-foreground">archivés</span>
           </h1>
-          <p className="text-white/50 text-sm font-light mb-10">
+          <p className="text-muted-foreground text-sm mb-10">
             {Number(total).toLocaleString("fr-FR")} numéros · de 1904 à
             aujourd'hui
           </p>
@@ -184,11 +191,11 @@ export default async function JournalPage({ searchParams }: Props) {
                 name="q"
                 defaultValue={q}
                 placeholder="Rechercher un numéro ou une date..."
-                className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 text-sm pl-4 pr-12 py-3 rounded-xl focus:outline-none focus:bg-white/15 focus:border-white/40 transition-all"
+                className="w-full bg-background border border-border text-foreground placeholder:text-muted-foreground text-sm pl-4 pr-12 py-3 rounded-sm focus:outline-none focus:border-primary/40 transition-colors"
               />
               <button
                 type="submit"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <svg
                   width="16"
@@ -207,14 +214,7 @@ export default async function JournalPage({ searchParams }: Props) {
 
           {/* Era filter pills */}
           <div className="flex flex-wrap gap-2">
-            <Link
-              href="/journal"
-              className={`text-xs font-medium rounded-full px-4 py-2 transition-colors no-underline border ${
-                !eraFilter
-                  ? "bg-white text-[#1A3A5C] border-white"
-                  : "text-white/70 border-white/20 hover:border-white/40 hover:text-white"
-              }`}
-            >
+            <Link href="/journal" className={eraFilterClass(!eraFilter)}>
               Tous les numéros
             </Link>
             {eraStats.map((e) => {
@@ -227,11 +227,7 @@ export default async function JournalPage({ searchParams }: Props) {
                 <Link
                   key={e.era}
                   href={`/journal?era=${e.era}`}
-                  className={`text-xs font-medium rounded-full px-4 py-2 transition-colors no-underline border ${
-                    eraFilter === e.era
-                      ? "bg-white text-[#1A3A5C] border-white"
-                      : "text-white/70 border-white/20 hover:border-white/40 hover:text-white"
-                  }`}
+                  className={eraFilterClass(eraFilter === e.era)}
                 >
                   {meta.label} · {Number(e.count).toLocaleString("fr-FR")}
                 </Link>
@@ -244,14 +240,14 @@ export default async function JournalPage({ searchParams }: Props) {
       <div className="max-w-6xl mx-auto px-8 py-10">
         {/* Results info */}
         <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-[#888]">
+          <p className="text-sm text-muted-foreground">
             {q ? (
               <>
-                <span className="font-semibold text-[#111]">
+                <span className="font-semibold text-foreground">
                   {Number(total).toLocaleString("fr-FR")}
                 </span>{" "}
                 résultat{Number(total) > 1 ? "s" : ""} pour{" "}
-                <span className="font-semibold text-[#111]">« {q} »</span>
+                <span className="font-semibold text-foreground">« {q} »</span>
               </>
             ) : eraFilter ? (
               <>
@@ -266,12 +262,12 @@ export default async function JournalPage({ searchParams }: Props) {
             {q && (
               <Link
                 href={`/journal${eraFilter ? `?era=${eraFilter}` : ""}`}
-                className="text-xs text-red-500 hover:underline no-underline"
+                className="text-xs text-destructive hover:underline no-underline"
               >
                 Effacer
               </Link>
             )}
-            <span className="text-xs text-[#AAA]">
+            <span className="text-xs text-muted-foreground">
               Page {page} / {totalPages}
             </span>
           </div>
@@ -287,12 +283,12 @@ export default async function JournalPage({ searchParams }: Props) {
               <Link
                 key={issue.issue_number}
                 href={issue.issue_number ? issueUrl(issue.issue_number) : "#"}
-                className="group bg-white border border-black/[0.07] rounded-xl p-4 hover:border-[#1A3A5C]/25 hover:shadow-md hover:-translate-y-0.5 transition-all no-underline overflow-hidden relative"
+                className="group bg-background border border-border rounded-sm p-4 hover:border-primary/40 transition-colors no-underline overflow-hidden relative"
               >
                 {/* Era badge */}
                 {era.label && (
                   <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-medium ${era.color} ${era.bg} rounded-full px-2 py-0.5 mb-3`}
+                    className={`inline-flex items-center gap-1 text-[10px] font-medium ${era.color} ${era.bg} rounded-sm px-2 py-0.5 mb-3`}
                   >
                     <span className={`w-1 h-1 rounded-full ${era.dot}`} />
                     {era.label}
@@ -301,30 +297,30 @@ export default async function JournalPage({ searchParams }: Props) {
 
                 {/* Issue number — big */}
                 <div className="mb-1">
-                  <p className="text-xs text-[#AAA] font-medium uppercase tracking-wider">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                     Numéro
                   </p>
-                  <p className="font-['Libre_Baskerville'] text-lg font-normal text-[#111] group-hover:text-[#1A3A5C] transition-colors leading-tight">
+                  <p className="font-serif text-lg font-normal text-foreground group-hover:text-primary transition-colors leading-tight">
                     {issue.issue_number}
                   </p>
                 </div>
 
                 {/* Date */}
                 {issue.issue_date && (
-                  <p className="text-xs text-[#888] mt-1 mb-3">
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">
                     {formatDate(issue.issue_date, "short")}
                   </p>
                 )}
 
                 {/* Footer */}
-                <div className="flex items-center justify-between pt-2 border-t border-black/5">
-                  <span className="flex items-center gap-1.5 text-xs text-[#AAA]">
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <BookOpen size={11} />
                     {n.toLocaleString("fr-FR")} texte{n > 1 ? "s" : ""}
                   </span>
                   <ArrowRight
                     size={12}
-                    className="text-[#CCC] group-hover:text-[#1A3A5C] group-hover:translate-x-0.5 transition-all"
+                    className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all"
                   />
                 </div>
               </Link>
@@ -334,8 +330,8 @@ export default async function JournalPage({ searchParams }: Props) {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-10 pt-6 border-t border-black/6">
-            <span className="text-sm text-[#888]">
+          <div className="flex items-center justify-between mt-10 pt-6 border-t border-border">
+            <span className="text-sm text-muted-foreground">
               Numéros {(page - 1) * PAGE_SIZE + 1}–
               {Math.min(page * PAGE_SIZE, total)} sur{" "}
               {total.toLocaleString("fr-FR")}
@@ -344,7 +340,7 @@ export default async function JournalPage({ searchParams }: Props) {
               {page > 1 && (
                 <Link
                   href={pageUrl(page - 1)}
-                  className="px-4 py-2 text-sm border border-black/10 rounded-lg hover:bg-white transition-colors no-underline text-[#444]"
+                  className="px-4 py-2 text-sm border border-border rounded-sm hover:bg-muted transition-colors no-underline text-foreground"
                 >
                   ← Précédent
                 </Link>
@@ -352,7 +348,7 @@ export default async function JournalPage({ searchParams }: Props) {
               {page < totalPages && (
                 <Link
                   href={pageUrl(page + 1)}
-                  className="px-4 py-2 text-sm bg-[#1A3A5C] text-white rounded-lg hover:bg-[#122840] transition-colors no-underline font-medium"
+                  className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 transition-colors no-underline font-medium"
                 >
                   Suivant →
                 </Link>

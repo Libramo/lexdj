@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { typesenseClient } from "@/lib/typesense";
-import { LAWS_COLLECTION } from "@/lib/typesense-schema";
+import { meiliClient } from "@/lib/meilisearch";
+import { LAWS_INDEX } from "@/lib/meilisearch-schema";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
@@ -8,26 +8,22 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) return NextResponse.json([]);
 
   try {
-    const result = await typesenseClient
-      .collections(LAWS_COLLECTION)
-      .documents()
-      .search({
-        q,
-        query_by: "title,reference_number,intro_text",
-        query_by_weights: "4,3,1",
-        num_typos: 1, // tolerate 1 typo — arrete finds arrêté
-        prefix: true, // arret finds arrêté as you type
-        per_page: 6,
-        highlight_full_fields: "title",
-        include_fields: "id,title,doc_type,publication_date",
-      });
+    const result = await meiliClient.index(LAWS_INDEX).search(q, {
+      limit: 6,
+      // Restrict to a subset of searchableAttributes for this request —
+      // never match on full_text for autocomplete. Default matchingStrategy
+      // ("last") already gives prefix-like behavior as you type.
+      attributesToSearchOn: ["title", "reference_number", "intro_text"],
+      attributesToHighlight: ["title"],
+      attributesToRetrieve: ["id", "title", "doc_type", "publication_date"],
+    } as any);
 
     const hits =
       result.hits?.map((hit: any) => ({
-        id: parseInt(hit.document.id),
-        title: hit.document.title,
-        doc_type: hit.document.doc_type || null,
-        publication_date: hit.document.publication_date || null,
+        id: parseInt(hit.id),
+        title: hit.title,
+        doc_type: hit.doc_type || null,
+        publication_date: hit.publication_date || null,
       })) ?? [];
 
     return NextResponse.json(hits);
