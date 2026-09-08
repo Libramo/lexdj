@@ -16,10 +16,17 @@ import { getPayload } from "payload";
 import pg from "pg";
 import config from "../payload.config";
 
-// Source: the scratch restore of eJO_backup.dump's `laws` table — NOT the
-// live ejo_test DB Payload writes to (that's DATABASE_URL, loaded by
-// `payload run` automatically).
-const SOURCE_DB_URL = "postgresql://postgres:liban@localhost:5432/ejo_reference";
+// Source: locally, a scratch restore of eJO_backup.dump's `laws` table —
+// NOT the local ejo_test DB Payload writes to, kept separate so this
+// read-only import never risks the live dev DB. In production there is no
+// such separate restore: `laws` and Payload's own tables (`codes`,
+// `code_sections`) already live in the same Postgres (see
+// architecture.md's Storage Model), so pass CODE_IMPORT_SOURCE_DB_URL=
+// "$DATABASE_URL" (the container's own connection string) when running
+// this in production instead of hand-editing the fallback below.
+const SOURCE_DB_URL =
+  process.env.CODE_IMPORT_SOURCE_DB_URL ??
+  "postgresql://postgres:liban@localhost:5432/ejo_reference";
 const SOURCE_LAW_ID = 4291; // "Loi n° 133/AN/05/5ème L portant Code du Travail."
 const CODE_TITLE = "Code du travail";
 
