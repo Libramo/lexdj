@@ -34,6 +34,30 @@ services:
       - postgres
       - meilisearch
 
+  # Visitor/traffic analytics — see context/progress-tracker.md's Umami
+  # entry. Client-side JS tracker only (browser page loads), not a
+  # replacement for the pre-existing host-level Prometheus/Grafana/
+  # cAdvisor stack (container resource usage) or a rate-limiting/security
+  # tool — it can't see /api/v1/* REST traffic at all. Reuses the existing
+  # `postgres` service (its own `umami` database, created once manually —
+  # see deploy/README.md) rather than running a second Postgres container,
+  # matching the resource-conscious reasoning behind the Meilisearch swap.
+  # No official per-version-pinned tag exists for the PostgreSQL-external-DB
+  # variant (verified against the registry, unlike Meilisearch's pinned
+  # `v1.53.2`) — `postgresql-latest` is the only tag the project publishes
+  # for this variant.
+  umami:
+    image: docker.umami.is/umami-software/umami:postgresql-latest
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET}
+      DISABLE_TELEMETRY: "1"
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - postgres
+
 volumes:
   postgres_data:
   meilisearch_data:

@@ -16,12 +16,17 @@
 | Scraping      | Cheerio + native `fetch`, `scraper/`             | Populates Postgres from journalofficiel.dj — run manually, not part of the app's request path |
 | CMS           | Payload 3 + `@payloadcms/db-postgres`, mounted at `/cms`, `/cms-api` | Editorial layer for law corrections and Codes — owns its own tables, never the scraper's |
 | Codes tree    | `@payloadcms/plugin-nested-docs`                 | Parent/breadcrumb bookkeeping for `code-sections`' hierarchy (Livre/Titre/Chapitre/Section/Article) |
+| Analytics     | Umami (self-hosted, Docker on the same VPS)      | Visitor/page-view tracking for the public site — `docker-compose.yml`'s `umami` service, its own `umami` database on the shared `postgres` service. Client-side JS only, no visibility into `/api/v1/*` traffic; answers a different question than the pre-existing host-level Prometheus/Grafana/cAdvisor stack (container resource usage, not visitor analytics) — see `progress-tracker.md` |
 
 ## System Boundaries
 
 - `app/(public)/*` — public-facing pages (homepage, search, browse, law/issue
   detail). Server components by default; `force-dynamic` to avoid stale
-  prerendering of DB-backed content.
+  prerendering of DB-backed content. `app/(public)/layout.tsx` conditionally
+  renders the Umami tracking script (only when `NEXT_PUBLIC_UMAMI_*` env
+  vars are set) — deliberately scoped to this layout, not the root
+  `app/layout.tsx`, so admin/`(admin)` and `/cms` traffic is never tracked
+  as visitor analytics.
 - `app/(admin)/dashboard/*` — password-gated internal tooling (law list, OCR
   editor). Protected by `proxy.ts` checking the `admin_token` cookie.
 - `app/api/v1/*` — the public, rate-limited, versioned REST API (laws,
@@ -117,6 +122,13 @@
   remain external links (`pdf_links`) back to journalofficiel.dj.
 - **Upstash Redis**: ephemeral rate-limit counters only — not application
   data.
+- **Umami's `umami` database**: a separate database on the same shared
+  `postgres` service (not a second Postgres container, and not a schema
+  inside the `eJO`/main database) — fully owned and migrated by Umami's
+  own container, never touched by Drizzle or Payload. Created once
+  manually (`CREATE DATABASE umami`) since Postgres's own init scripts
+  only run against an empty data directory and the VPS's volume already
+  existed — see `deploy/README.md`'s Umami setup section.
 - **Payload's own tables** (`users`, `law_corrections`, `codes`,
   `code_sections`, `payload_*`): live in the same Postgres database as
   everything else, but are fully owned and migrated by Payload — never

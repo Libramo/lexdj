@@ -80,6 +80,55 @@ apply the `--remove-orphans` cleanup for the Typesense → Meilisearch
 service rename — expect to see the old `typesense` container get
 removed the first time this runs after that deploy lands.
 
+## Umami visitor analytics setup (one-time, on the VPS)
+
+`docker-compose.yml`'s `umami` service reuses the existing `postgres`
+service (its own `umami` database) rather than a second Postgres
+container. It answers a different question than the pre-existing
+Prometheus/Grafana/cAdvisor stack already running on this VPS — that
+stack covers container resource usage (CPU/memory/disk); Umami covers
+actual visitor/page-view traffic. It's a client-side JS tracker, so it
+can only ever see browser page loads — it has no visibility into
+`/api/v1/*` REST traffic.
+
+1. Generate a secret and add it to the VPS `.env` (same pattern as
+   `PAYLOAD_SECRET`/`MEILI_MASTER_KEY`):
+   ```bash
+   openssl rand -hex 32
+   # add the result to .env as: UMAMI_APP_SECRET=<value>
+   ```
+2. Create the `umami` database. Postgres's own init scripts only run
+   against an empty data directory, and the VPS's `postgres_data` volume
+   already exists — so this is a real one-time manual step, not something
+   `docker compose up` handles on its own:
+   ```bash
+   docker compose exec postgres psql -U ${POSTGRES_USER} -c "CREATE DATABASE umami;"
+   ```
+3. Start it: `docker compose up -d --build`. Umami is bound to
+   `127.0.0.1:3001` only, same as Postgres/Meilisearch — not reachable
+   from outside the VPS host by default.
+4. Log into the dashboard once via an SSH tunnel
+   (`ssh -L 3001:localhost:3001 <user>@<vps>`, then
+   `http://localhost:3001`) with the default `admin`/`umami` credentials
+   and **change the password immediately**.
+5. Create a "website" entry for lexdj.dj in the dashboard and copy its
+   website ID.
+6. Add two more values to `.env` and redeploy:
+   ```
+   NEXT_PUBLIC_UMAMI_SCRIPT_URL=<a publicly reachable URL for Umami's script.js>
+   NEXT_PUBLIC_UMAMI_WEBSITE_ID=<the website ID from step 5>
+   ```
+   Both unset (the default) means `app/(public)/layout.tsx` renders no
+   tracking script at all — safe for local dev.
+7. **Gap outside this repo, same as the TLS-termination gap noted in
+   `context/security.md`**: `NEXT_PUBLIC_UMAMI_SCRIPT_URL` must resolve
+   to something publicly reachable, but the container itself is
+   deliberately bound to `127.0.0.1:3001` only. Whatever already fronts
+   the public domain (nginx/Caddy/etc., not part of this repo) needs a
+   route proxying to `localhost:3001` — e.g. a `/stats/` path or a
+   dedicated subdomain — before this script will actually load for real
+   visitors.
+
 ## Known limitations, not hidden
 
 - No rollback-on-failed-health-check — a bad deploy stays up until

@@ -100,24 +100,33 @@ Update this file after every meaningful implementation change.
 
 - Session ending here deliberately (2026-09-07 follow-up session). **Pick
   up next session:**
-  1. **Confirm the `PAYLOAD_SECRET` fix was actually applied on the VPS**
-     and re-run the migration:
+  1. ~~**Confirm the `PAYLOAD_SECRET` fix was actually applied on the VPS**
+     and re-run the migration**~~ — **confirmed done (2026-09-08)**: `/cms`
+     and `/codes` are both reachable in production now; `/codes` correctly
+     renders empty (no Codes content imported yet — see next item), exactly
+     the expected post-migration state.
+     Root cause (for reference): Payload had never actually run in
+     production before — neither `Dockerfile` nor `docker-compose.yml` runs
+     `npx payload migrate` on deploy, and the VPS's `.env` never had
+     `PAYLOAD_SECRET` set at all (only ever needed locally until now).
+  2. ~~**Import the actual Code du travail content into production**~~ —
+     **done (2026-09-08)**. First attempt hit a real bug, not a VPS/infra
+     issue: `scripts/import-code-du-travail.ts` hardcoded its source
+     connection to `postgresql://postgres:liban@localhost:5432/ejo_reference`
+     (a local-dev-only scratch DB) — `ECONNREFUSED` inside the production
+     container, which has no such database. Fixed by making the source
+     connection overridable via `CODE_IMPORT_SOURCE_DB_URL` (falls back to
+     the old local-dev scratch-DB default when unset, so local usage is
+     unchanged), then re-run in production as:
      ```
-     docker compose exec -T nextjs printenv PAYLOAD_SECRET   # confirm non-empty
-     docker compose exec -T nextjs npx payload migrate
+     docker compose exec -T nextjs sh -c 'CODE_IMPORT_SOURCE_DB_URL="$DATABASE_URL" npx payload run scripts/import-code-du-travail.ts'
      ```
-     Root cause: Payload has never actually run in production before —
-     neither `Dockerfile` nor `docker-compose.yml` runs `npx payload
-     migrate` on deploy, and the VPS's `.env` never had `PAYLOAD_SECRET`
-     set at all (only ever needed locally until now). Once migrated,
-     `/cms` should become reachable (first visit prompts to create the
-     initial admin user — normal Payload first-run behavior) and
-     `/codes` should become reachable but **empty** — see next item.
-  2. Once migrated, import the actual Code du travail content into
-     **production** (it was only ever imported into local `ejo_test`):
-     ```
-     docker compose exec -T nextjs npx payload run scripts/import-code-du-travail.ts
-     ```
+     pointing the source read at the container's own `DATABASE_URL` — safe
+     in production specifically because `laws` and Payload's own tables
+     (`codes`, `code_sections`) already live in the same Postgres there
+     (see `architecture.md`'s Storage Model), unlike local dev where
+     `ejo_test`/`ejo_reference` are deliberately kept separate. Confirmed
+     working; production `/codes` now shows the real Code du travail.
   3. **Build the next code: Code Civil (`laws.id = 1671`, 2018)** — chosen
      this session from a corpus survey (see Completed → Codes Corpus
      Survey for the full candidate list and reasoning). Investigation
@@ -128,15 +137,8 @@ Update this file after every meaningful implementation change.
      `scripts/import-code-civil.ts`. Do **not** assume the same regex
      markers as `scripts/import-code-du-travail.ts` without verifying
      against the real text first, same discipline as the original import.
-  4. Retire the old `typesense_data` Docker volume on the VPS — now safe
-     to do, since the full reindex succeeded completely this session
-     (53,845/53,845 documents, 0 failed batches) and the delta reindex
-     was also verified working (31/31 documents against a real `--since`
-     window). Not yet actually run:
-     ```
-     docker volume ls | grep typesense
-     docker volume rm <name>
-     ```
+  4. ~~Retire the old `typesense_data` Docker volume on the VPS~~ — **done
+     (2026-09-08)**, confirmed no Typesense volume remaining.
   5. **Manual functional verification checklist — still not exhaustively
      done**, only incidentally touched while fixing the "N° n°" bug:
      confirm era filters actually narrow results on `/recherche`/`/api/v1/search`,
@@ -166,11 +168,62 @@ Update this file after every meaningful implementation change.
       not broken, just not as clean as it could be; found while fixing
       the "N° n°" bug next to it, not fixed since it wasn't what was
       reported.
-  12. **Umami visitor monitoring** — still scoped, not built (see the
-      prior session's note above for the full reasoning and the API-
-      traffic-blind-spot caveat). Not touched this session.
+  12. ~~**Umami visitor monitoring** — still scoped, not built~~ — **wired
+      up 2026-09-08, not yet live**: see Completed → Umami Visitor
+      Analytics for the implementation; VPS-side setup (create the
+      `umami` database, generate `UMAMI_APP_SECRET`, log in and create the
+      website entry, wire the public reverse proxy) is still pending —
+      that part is the user's own, not something runnable from here.
 
 ## Completed
+
+### Umami Visitor Analytics (2026-09-08)
+
+Implements the scoped-but-not-built item from the 2026-09-07 session (see
+Current Phase). Verified the Docker image situation first rather than
+guessing: unlike Meilisearch's pinned `v1.53.2`, Umami publishes no
+per-version-pinned tag for the PostgreSQL-external-DB variant —
+`docker.umami.is/umami-software/umami:postgresql-latest` is the only tag
+the project maintains for it (confirmed against the GitHub Container
+Registry and Docker Hub listings directly, not assumed); recorded as a
+deliberate, documented exception to the "pin exact tags" rule rather than
+a violation of it.
+
+- **`docker-compose.yml`**: added a `umami` service. Reuses the existing
+  `postgres` service (its own `umami` database) instead of a second
+  Postgres container — same resource-conscious reasoning as the
+  Typesense→Meilisearch swap. Bound to `127.0.0.1:3001` only, matching
+  Postgres/Meilisearch's existing network-isolation pattern
+  (`security.md` A05) — not publicly reachable by default.
+- **`app/(public)/layout.tsx`**: renders Umami's tracking `<script>` via
+  `next/script` (`strategy="afterInteractive"`), gated on
+  `NEXT_PUBLIC_UMAMI_SCRIPT_URL`/`NEXT_PUBLIC_UMAMI_WEBSITE_ID` both being
+  set — renders nothing when they're unset, so local dev and any
+  environment without Umami configured is unaffected. Deliberately placed
+  in the `(public)` route group's layout, not the root `app/layout.tsx`,
+  so admin dashboard and `/cms` traffic is never counted as visitor
+  analytics — matches the project's existing public/admin split
+  (`ai-workflow-rules.md`).
+- **`deploy/README.md`**: added a full one-time VPS setup section —
+  generate `UMAMI_APP_SECRET`, manually create the `umami` database
+  (Postgres's init scripts only run against an empty data directory, and
+  the VPS's volume already exists, so this can't happen automatically),
+  first login + website creation in the dashboard, and the two
+  `NEXT_PUBLIC_UMAMI_*` env vars.
+- **Real gap flagged, not solved here (out of this repo's reach)**: the
+  tracking script's URL needs to be publicly reachable, but the container
+  is deliberately `127.0.0.1`-only — whatever already fronts the public
+  domain (nginx/Caddy, not part of this repo, same caveat already on file
+  for TLS termination in `security.md`) needs a route proxying to
+  `localhost:3001` before real visitors will ever load the script. Not
+  something verifiable from here.
+- `architecture.md` updated: Stack table (new Analytics row), Storage
+  Model (the `umami` database's ownership/creation note), System
+  Boundaries (`app/(public)/layout.tsx`'s conditional script).
+- `npx tsc --noEmit` passes clean. **Not yet live**: the VPS-side setup
+  steps above are still pending (user's own — no VPS/SSH access from
+  here), so this is wired up in the codebase but not yet tracking real
+  traffic.
 
 ### Scraper
 

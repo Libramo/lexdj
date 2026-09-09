@@ -3,6 +3,7 @@ import { db } from "@/drizzle/src";
 import { laws } from "@/drizzle/src/db/schema";
 import { count, sql } from "drizzle-orm";
 import Link from "next/link";
+import Script from "next/script";
 
 export default async function PublicLayout({
   children,
@@ -16,6 +17,20 @@ export default async function PublicLayout({
     .then((r) => [{ total: Number((r.rows[0] as any).total) }]);
   return (
     <div className="min-h-screen flex flex-col bg-muted">
+      {/* Umami visitor analytics — public-site pages only, not the admin
+          dashboard or /cms. Env vars unset (e.g. local dev) means no
+          script renders at all, so this never breaks a build/dev run
+          without Umami configured. */}
+      {process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL &&
+        process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
+          <Script
+            defer
+            src={process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL}
+            data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+            strategy="afterInteractive"
+          />
+        )}
+
       {/* Top bar */}
       <div className="bg-muted border-b border-border text-muted-foreground text-[11px] tracking-widest text-center py-1.5 font-medium">
         LEXDJ · Archive numérique non officielle du droit et de la législation de Djibouti
