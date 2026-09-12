@@ -224,10 +224,59 @@ a violation of it.
 - `architecture.md` updated: Stack table (new Analytics row), Storage
   Model (the `umami` database's ownership/creation note), System
   Boundaries (`app/(public)/layout.tsx`'s conditional script).
-- `npx tsc --noEmit` passes clean. **Not yet live**: the VPS-side setup
-  steps above are still pending (user's own — no VPS/SSH access from
-  here), so this is wired up in the codebase but not yet tracking real
-  traffic.
+- `npx tsc --noEmit` passes clean.
+- **VPS rollout (2026-09-09–12), done in stages, two real bugs found only
+  by actually deploying rather than by review**:
+  1. First `docker compose up -d --build` on the VPS failed outright:
+     `Bind for 127.0.0.1:3001 failed: port is already allocated` — `3001`
+     was an unverified guess (no VPS/SSH access from here to check ports
+     in advance), and it turned out `3000`/`3001`/`3003` were all already
+     bound by other containers on this shared host (confirmed via
+     `ss -tlnp`, not guessed again). Moved to `3002`, confirmed free,
+     redeployed clean — all 5 containers (including `umami`) came up.
+  2. `docker compose exec postgres psql -U ${POSTGRES_USER} -c "CREATE
+     DATABASE umami;"` failed twice, both real shell gotchas rather than
+     Postgres problems: `${POSTGRES_USER}` doesn't expand in an SSH shell
+     (`.env` is only read by Docker Compose itself, not sourced into the
+     shell), and `psql -U <user>` with no `-d` defaults to a database
+     *named after the user*, which didn't exist. Fixed by reading the
+     real values with `grep -E '^POSTGRES_(USER|DB)=' .env` and passing
+     both `-U`/`-d` explicitly. `deploy/README.md` updated with this
+     exact gotcha so it isn't rediscovered next time.
+  3. Confirmed healthy via `docker compose logs umami` ("All migrations
+     have been successfully applied", "Database is up to date", "Ready").
+  4. Website created in the Umami dashboard (`lexdj`, ID
+     `dccaadf7-2705-4a0c-9338-636ec2adb887`), domain intentionally set to
+     `vps.blyanalytics.com` — the site's current real public domain,
+     since `lexdj.dj` DNS isn't live yet (see Current Goal item 7); update
+     this once DNS actually points at `lexdj.dj`.
+  5. **Reverse proxy added** (`/etc/nginx/conf.d/vps.blyanalytics.com.conf`,
+     outside this repo but documented here since it's load-bearing): a new
+     `location /stats/ { proxy_pass http://localhost:3002/; ... }` block
+     alongside the existing `location /` (→ `localhost:3000`), so
+     `https://vps.blyanalytics.com/stats/script.js` and
+     `.../stats/api/send` reach the `umami` container while everything
+     else still reaches `nextjs` — closes the "gap flagged, not solved
+     here" item above.
+  6. **Real bug, found only after wiring everything above and testing**:
+     `NEXT_PUBLIC_UMAMI_SCRIPT_URL`/`NEXT_PUBLIC_UMAMI_WEBSITE_ID` were
+     added to `.env` and `docker compose up -d --build` was re-run, but
+     the tracking script still didn't render (`curl` for it on the live
+     page matched nothing). Root cause: `NEXT_PUBLIC_*` variables are
+     compiled directly into the client JS bundle at **build time**
+     (`RUN npm run build` inside `Dockerfile`) — `docker-compose.yml`'s
+     `environment:`/`env_file:` only inject variables into the *running*
+     container, which `docker build` never sees at all, so both variables
+     were `undefined` when Next.js compiled and
+     `app/(public)/layout.tsx`'s gate correctly rendered nothing. Fixed by
+     declaring `ARG NEXT_PUBLIC_UMAMI_SCRIPT_URL`/`ARG
+     NEXT_PUBLIC_UMAMI_WEBSITE_ID` (+ matching `ENV` lines so `RUN npm run
+     build` actually sees them) in `Dockerfile`, and passing them from
+     `docker-compose.yml` via `nextjs.build.args` (compose substitutes
+     `${...}` from `.env` automatically when building, which is a
+     genuinely different mechanism from `env_file`). **Not yet
+     re-deployed/re-verified as of this write-up** — next step is
+     pushing this fix and rebuilding again on the VPS.
 
 ### Scraper
 

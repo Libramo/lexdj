@@ -16,6 +16,15 @@ RUN npm ci
 # Copy the rest of the project files into the container
 COPY . .
 
+# NEXT_PUBLIC_* vars get compiled directly into the client JS bundle during
+# the build below — they must be passed in as build args (see
+# docker-compose.yml's nextjs.build.args), not just set on the running
+# container, or Next.js bakes in `undefined` for anything read at build time.
+ARG NEXT_PUBLIC_UMAMI_SCRIPT_URL
+ARG NEXT_PUBLIC_UMAMI_WEBSITE_ID
+ENV NEXT_PUBLIC_UMAMI_SCRIPT_URL=$NEXT_PUBLIC_UMAMI_SCRIPT_URL
+ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID
+
 # Build the Next.js app
 RUN npm run build
 
