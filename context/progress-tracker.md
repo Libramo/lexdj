@@ -168,12 +168,17 @@ Update this file after every meaningful implementation change.
       not broken, just not as clean as it could be; found while fixing
       the "N° n°" bug next to it, not fixed since it wasn't what was
       reported.
-  12. ~~**Umami visitor monitoring** — still scoped, not built~~ — **wired
-      up 2026-09-08, not yet live**: see Completed → Umami Visitor
-      Analytics for the implementation; VPS-side setup (create the
-      `umami` database, generate `UMAMI_APP_SECRET`, log in and create the
-      website entry, wire the public reverse proxy) is still pending —
-      that part is the user's own, not something runnable from here.
+  12. ~~**Umami visitor monitoring**~~ — **done and confirmed live
+      (2026-09-12)**. See Completed → Umami Visitor Analytics for the full
+      rollout, including two real bugs hit only by actually deploying
+      (a port conflict with another container on the shared VPS, and a
+      `${VAR}`-doesn't-expand-in-an-SSH-shell gotcha on the `CREATE
+      DATABASE` step) and two false leads corrected along the way (a
+      wrong build-arg diagnosis for a `curl`-based test that could never
+      have worked regardless, and an unconfirmed/unnecessary
+      `CLIENT_IP_HEADER` fix for a Realtime-tab-only display quirk that
+      the actual Overview stats never had). Domain is temporarily
+      `vps.blyanalytics.com` pending `lexdj.dj` DNS — see item 7.
 
 ## Completed
 
@@ -258,25 +263,51 @@ a violation of it.
      `.../stats/api/send` reach the `umami` container while everything
      else still reaches `nextjs` — closes the "gap flagged, not solved
      here" item above.
-  6. **Real bug, found only after wiring everything above and testing**:
-     `NEXT_PUBLIC_UMAMI_SCRIPT_URL`/`NEXT_PUBLIC_UMAMI_WEBSITE_ID` were
-     added to `.env` and `docker compose up -d --build` was re-run, but
-     the tracking script still didn't render (`curl` for it on the live
-     page matched nothing). Root cause: `NEXT_PUBLIC_*` variables are
-     compiled directly into the client JS bundle at **build time**
-     (`RUN npm run build` inside `Dockerfile`) — `docker-compose.yml`'s
-     `environment:`/`env_file:` only inject variables into the *running*
-     container, which `docker build` never sees at all, so both variables
-     were `undefined` when Next.js compiled and
-     `app/(public)/layout.tsx`'s gate correctly rendered nothing. Fixed by
-     declaring `ARG NEXT_PUBLIC_UMAMI_SCRIPT_URL`/`ARG
-     NEXT_PUBLIC_UMAMI_WEBSITE_ID` (+ matching `ENV` lines so `RUN npm run
-     build` actually sees them) in `Dockerfile`, and passing them from
-     `docker-compose.yml` via `nextjs.build.args` (compose substitutes
-     `${...}` from `.env` automatically when building, which is a
-     genuinely different mechanism from `env_file`). **Not yet
-     re-deployed/re-verified as of this write-up** — next step is
-     pushing this fix and rebuilding again on the VPS.
+  6. **False lead, corrected after more testing**: `curl`-ing the live
+     homepage and grepping for the script tag matched nothing after
+     adding the two `NEXT_PUBLIC_UMAMI_*` vars to `.env`. First guess was
+     that `NEXT_PUBLIC_*` vars need to be passed as Docker **build args**
+     (`ARG`/`ENV` in `Dockerfile`, `build.args` in `docker-compose.yml`)
+     since they're normally inlined into the client bundle at build time,
+     not read from the running container's env — that change was made and
+     is harmless to keep, but **it wasn't the actual cause**: confirmed via
+     `docker compose exec nextjs printenv` that the container already had
+     both values correctly *without* the build-arg change, yet `curl`
+     still showed nothing. The real explanation: `app/(public)/layout.tsx`
+     has no `"use client"` directive, so it's a Server Component — it
+     reads `process.env` live at request time on the server, no
+     build-time inlining involved at all for this specific usage. The
+     actual reason `curl` found nothing is that `next/script`'s
+     `strategy="afterInteractive"` (the one used here) injects the
+     `<script>` tag into the DOM via client-side JS *after* the page
+     loads in a real browser — it never appears in the raw server-rendered
+     HTML `curl` fetches, regardless of whether the underlying config is
+     correct. Lesson: `curl | grep` is not a valid test for an
+     `afterInteractive`/`lazyOnload` `next/script` tag; verify via a real
+     browser's Network tab or the Umami dashboard instead.
+  7. **Real (narrower) finding, and a retraction**: after wiring the
+     `/stats/` proxy, refreshing the same browser session repeatedly
+     showed the visitor count climbing on Umami's **Realtime** tab
+     specifically (Views correctly kept climbing too, which is expected).
+     First guess was a missing `CLIENT_IP_HEADER` env var causing Umami to
+     see an inconsistent client IP behind the nginx proxy, breaking its
+     IP+UA-hash visitor deduplication — added `CLIENT_IP_HEADER:
+     X-Forwarded-For` to the `umami` service in `docker-compose.yml`
+     (harmless and still generally correct practice behind a reverse
+     proxy, e.g. for accurate country/geo detection). **But this was never
+     actually deployed**, and the **Overview** tab (the real, aggregated
+     stats — not Realtime) already showed the fully correct numbers
+     (`Visitors: 1`, `Visits: 1`, `Views: 12`) *before* that env var was
+     ever applied. So visitor deduplication was working correctly all
+     along; the inflated count is isolated to Realtime's own live
+     rolling-window display logic, not an IP-detection bug. Not chased
+     further since the numbers that actually matter (Overview/historical
+     reporting) are correct. `CLIENT_IP_HEADER` is committed but its
+     necessity is unconfirmed — kept as good practice, not as a proven fix.
+  8. **End state, 2026-09-12**: Umami is confirmed live and tracking
+     correctly. Real visitor traffic on lexdj (currently served at
+     `vps.blyanalytics.com` pending DNS — see Current Goal item 7) now
+     shows up in the `lexdj` website's Overview/Realtime views.
 
 ### Scraper
 

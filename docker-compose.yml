@@ -57,6 +57,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/umami
       APP_SECRET: ${UMAMI_APP_SECRET}
       DISABLE_TELEMETRY: "1"
+      # Without this, Umami sees every request coming through the nginx
+      # reverse proxy as the same (or an inconsistent) source address
+      # instead of the real client IP — since unique-visitor identity is a
+      # hash of IP + user-agent (no cookies), that broke deduplication:
+      # every refresh from the same browser was counting as a new visitor.
+      # nginx's /stats/ location block already forwards this header.
+      CLIENT_IP_HEADER: X-Forwarded-For
     ports:
       - "127.0.0.1:3002:3000"
     depends_on:
