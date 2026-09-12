@@ -192,9 +192,13 @@ a violation of it.
 - **`docker-compose.yml`**: added a `umami` service. Reuses the existing
   `postgres` service (its own `umami` database) instead of a second
   Postgres container — same resource-conscious reasoning as the
-  Typesense→Meilisearch swap. Bound to `127.0.0.1:3001` only, matching
-  Postgres/Meilisearch's existing network-isolation pattern
-  (`security.md` A05) — not publicly reachable by default.
+  Typesense→Meilisearch swap. Bound to `127.0.0.1:3002` only (moved from
+  an initial `3001` guess after the first VPS deploy hit "port is already
+  allocated" — `3000`/`3001`/`3003` all turned out to already be in use by
+  other containers on this host, confirmed via `ss -tlnp` rather than
+  guessed again), matching Postgres/Meilisearch's existing
+  network-isolation pattern (`security.md` A05) — not publicly reachable
+  by default.
 - **`app/(public)/layout.tsx`**: renders Umami's tracking `<script>` via
   `next/script` (`strategy="afterInteractive"`), gated on
   `NEXT_PUBLIC_UMAMI_SCRIPT_URL`/`NEXT_PUBLIC_UMAMI_WEBSITE_ID` both being
@@ -215,7 +219,7 @@ a violation of it.
   is deliberately `127.0.0.1`-only — whatever already fronts the public
   domain (nginx/Caddy, not part of this repo, same caveat already on file
   for TLS termination in `security.md`) needs a route proxying to
-  `localhost:3001` before real visitors will ever load the script. Not
+  `localhost:3002` before real visitors will ever load the script. Not
   something verifiable from here.
 - `architecture.md` updated: Stack table (new Analytics row), Storage
   Model (the `umami` database's ownership/creation note), System

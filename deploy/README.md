@@ -100,16 +100,23 @@ can only ever see browser page loads — it has no visibility into
 2. Create the `umami` database. Postgres's own init scripts only run
    against an empty data directory, and the VPS's `postgres_data` volume
    already exists — so this is a real one-time manual step, not something
-   `docker compose up` handles on its own:
+   `docker compose up` handles on its own. `${POSTGRES_USER}` only
+   resolves inside a container (via `env_file`), not in your SSH shell —
+   check the real values first and pass them explicitly, including `-d`
+   (psql defaults to a database named after the user, which won't exist):
    ```bash
-   docker compose exec postgres psql -U ${POSTGRES_USER} -c "CREATE DATABASE umami;"
+   grep -E '^POSTGRES_(USER|DB)=' .env
+   docker compose exec postgres psql -U <POSTGRES_USER value> -d <POSTGRES_DB value> -c "CREATE DATABASE umami;"
    ```
 3. Start it: `docker compose up -d --build`. Umami is bound to
-   `127.0.0.1:3001` only, same as Postgres/Meilisearch — not reachable
-   from outside the VPS host by default.
+   `127.0.0.1:3002` only, same as Postgres/Meilisearch — not reachable
+   from outside the VPS host by default. (Picked after checking `ss -tlnp`
+   on the actual VPS — `3000`/`3001`/`3003` were already taken by other
+   containers on this host; don't assume `3001` is free without checking
+   again if this ever needs to move.)
 4. Log into the dashboard once via an SSH tunnel
-   (`ssh -L 3001:localhost:3001 <user>@<vps>`, then
-   `http://localhost:3001`) with the default `admin`/`umami` credentials
+   (`ssh -L 3002:localhost:3002 <user>@<vps>`, then
+   `http://localhost:3002`) with the default `admin`/`umami` credentials
    and **change the password immediately**.
 5. Create a "website" entry for lexdj.dj in the dashboard and copy its
    website ID.
@@ -123,9 +130,9 @@ can only ever see browser page loads — it has no visibility into
 7. **Gap outside this repo, same as the TLS-termination gap noted in
    `context/security.md`**: `NEXT_PUBLIC_UMAMI_SCRIPT_URL` must resolve
    to something publicly reachable, but the container itself is
-   deliberately bound to `127.0.0.1:3001` only. Whatever already fronts
+   deliberately bound to `127.0.0.1:3002` only. Whatever already fronts
    the public domain (nginx/Caddy/etc., not part of this repo) needs a
-   route proxying to `localhost:3001` — e.g. a `/stats/` path or a
+   route proxying to `localhost:3002` — e.g. a `/stats/` path or a
    dedicated subdomain — before this script will actually load for real
    visitors.
 
